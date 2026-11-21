@@ -1,0 +1,17 @@
+/.bundle/
+/.yardoc
+/_yardoc/
+/coverage/
+/doc/
+/pkg/
+/spec/reports/
+/tmp/
+
+# Gem-specific
+*.gem
+Gemfile.lock
+.ruby-version
+
+# Agent tooling
+/.claude/
+/.conductor/

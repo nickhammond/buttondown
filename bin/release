@@ -1,0 +1,7 @@
+#!/bin/bash -eux
+# Usage: bin/release 0.1.0
+
+VERSION=$1
+
+./bin/test
+gem bump --version $VERSION --push --tag --release
