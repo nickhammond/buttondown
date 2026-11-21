@@ -130,11 +130,20 @@ bundler-audit. `bin/test` runs just the tests.
 
 ## Releasing a new version
 
-`bin/release` bumps the version, tags it, and pushes to GitHub and RubyGems.
+Releases go out from `main` with a clean tree. One-time setup: `gem signin`,
+so `~/.gem/credentials` exists.
 
 ```
 bin/release 0.1.1
 ```
+
+That checks you're on an up-to-date `main`, that `CHANGELOG.md` has a section
+for the version, and that the tag doesn't already exist; runs `bin/ci`; then
+bumps `lib/buttondown/version.rb`, tags, and pushes the gem. Write the
+changelog entry before running it.
+
+A version pushed to RubyGems can be yanked but never replaced, so everything
+before the release step is deliberately reversible.
 
 ## Contributing
 
