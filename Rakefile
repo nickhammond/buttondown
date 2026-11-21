@@ -2,7 +2,7 @@
 
 require "bundler/gem_tasks"
 require "rake/testtask"
-require "standard/rake"
+require "rubocop/rake_task"
 
 Rake::TestTask.new(:test) do |t|
   t.libs << "test"
@@ -10,4 +10,6 @@ Rake::TestTask.new(:test) do |t|
   t.test_files = FileList["test/**/*_test.rb"]
 end
 
-task default: %i[test standard]
+RuboCop::RakeTask.new
+
+task default: %i[test rubocop]

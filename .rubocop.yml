@@ -1,0 +1,48 @@
+AllCops:
+  TargetRubyVersion: 3.3
+  NewCops: enable
+  SuggestExtensions: false
+
+# Style choices, not quality ones. These match the code as written and the
+# other gems in the house; RuboCop's defaults simply differ from standard's.
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+Layout/SpaceInsideHashLiteralBraces:
+  EnforcedStyle: no_space
+
+Layout/MultilineMethodCallIndentation:
+  EnforcedStyle: indented
+
+Layout/MultilineOperationIndentation:
+  EnforcedStyle: indented
+
+# Classes here carry comments where a comment earns its place. A cop that
+# demands one directly above every class just produces filler.
+Style/Documentation:
+  Enabled: false
+
+# The cop exists to stop long positional lists, where order is a trap.
+# Keyword arguments have no such problem.
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+
+# A test file is one long block of `describe`/`it` by construction. Measuring
+# its length says nothing about whether it is well organized.
+Metrics/BlockLength:
+  Exclude:
+    - 'test/**/*'
+
+# A little above the defaults. An HTTP client that builds a request and
+# classifies every response shape is cohesive at this size; splitting it
+# further to satisfy the default would spread one job across more files.
+Metrics/MethodLength:
+  Max: 15
+
+Metrics/ClassLength:
+  Max: 150
+  Exclude:
+    - 'test/**/*'

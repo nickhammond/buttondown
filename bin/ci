@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Everything CI runs, in one command. Tests go first: undercover reads the
+# lcov report they produce.
+
+# What undercover measures new coverage against. On a branch this is the
+# base; on main it finds nothing new, which is the point.
+COMPARE="${UNDERCOVER_COMPARE:-origin/main}"
+
+step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
+
+step "Tests"
+bundle exec rake test
+
+step "RuboCop"
+bundle exec rubocop
+
+step "Undercover (uncovered changes vs ${COMPARE})"
+if git rev-parse --verify --quiet "$COMPARE" >/dev/null; then
+  bundle exec undercover --compare "$COMPARE"
+else
+  echo "no ${COMPARE} to compare against, checking the working tree"
+  bundle exec undercover
+fi
+
+step "Bundler audit"
+bundle exec bundle-audit check --update
+
+printf '\n\033[32mAll checks passed.\033[0m\n'

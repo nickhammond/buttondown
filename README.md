@@ -27,9 +27,6 @@ subscriber = client.subscribe("subscriber@example.com")
 subscriber.regular? # => true
 ```
 
-A blank token raises `Buttondown::ConfigurationError` from the constructor, so a
-misconfigured client fails at boot rather than inside a background job later.
-
 ### Options
 
 `subscribe` sends two defaults, both overridable per call:
@@ -125,9 +122,11 @@ Timeouts are configurable the same way — `open_timeout:` (default 5s),
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then run
-`bin/test` to run the tests and `bundle exec standardrb` to lint. You can also
-run `bin/console` for an interactive prompt.
+After checking out the repo, run `bin/setup` to install dependencies, then
+`bin/console` for an interactive prompt.
+
+`bin/ci` runs everything CI runs — tests, RuboCop, undercover and
+bundler-audit. `bin/test` runs just the tests.
 
 ## Releasing a new version
 

@@ -20,7 +20,7 @@ module Buttondown
     READ_TIMEOUT = 10
     WRITE_TIMEOUT = 10
 
-    USER_AGENT = "buttondown-rb/#{VERSION}"
+    USER_AGENT = "buttondown-rb/#{VERSION}".freeze
 
     # Deliberately permissive: never stricter than Buttondown itself. Rejects
     # only what no mail server would accept. Known false negative: dotless hosts
@@ -50,16 +50,16 @@ module Buttondown
 
     attr_reader :token, :api_version
 
-    def initialize(token = ENV["BUTTONDOWN_API_KEY"],
-      api_version: API_VERSION,
-      open_timeout: OPEN_TIMEOUT,
-      read_timeout: READ_TIMEOUT,
-      write_timeout: WRITE_TIMEOUT)
+    def initialize(token = ENV.fetch("BUTTONDOWN_API_KEY", nil),
+                   api_version: API_VERSION,
+                   open_timeout: OPEN_TIMEOUT,
+                   read_timeout: READ_TIMEOUT,
+                   write_timeout: WRITE_TIMEOUT)
       @token = token.to_s.strip
 
       if @token.empty?
         raise ConfigurationError,
-          'No Buttondown API token. Pass one to Buttondown::Client.new or set ENV["BUTTONDOWN_API_KEY"].'
+              'No Buttondown API token. Pass one to Buttondown::Client.new or set ENV["BUTTONDOWN_API_KEY"].'
       end
 
       @api_version = api_version
@@ -101,26 +101,30 @@ module Buttondown
       # the version prefix.
       uri = URI("#{BASE_URL}#{path}")
 
+      request = Net::HTTP::Post.new(uri.request_uri, request_headers(collision_behavior))
+      request.body = JSON.generate(payload)
+
+      handle(perform(build_http(uri), request))
+    end
+
+    def build_http(uri)
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == "https"
       http.open_timeout = @open_timeout
       http.read_timeout = @read_timeout
       http.write_timeout = @write_timeout
-      http.max_retries = 0 # never silently re-POST against a 100/day limit
+      http.max_retries = 0 # never silently re-POST against a rate-limited endpoint
+      http
+    end
 
-      request = Net::HTTP::Post.new(uri.request_uri, request_headers(collision_behavior))
-      request.body = JSON.generate(payload)
-
-      response =
-        begin
-          http.request(request)
-        rescue *TIMEOUT_ERRORS => e
-          raise TimeoutError, "Buttondown request timed out: #{e.class}"
-        rescue *CONNECTION_ERRORS => e
-          raise ConnectionError, "Couldn't reach Buttondown: #{e.class}: #{e.message}"
-        end
-
-      handle(response)
+    # Rescues an explicit list rather than bare `rescue`, so a bug in this gem
+    # surfaces as itself instead of being reported as a connection failure.
+    def perform(http, request)
+      http.request(request)
+    rescue *TIMEOUT_ERRORS => e
+      raise TimeoutError, "Buttondown request timed out: #{e.class}"
+    rescue *CONNECTION_ERRORS => e
+      raise ConnectionError, "Couldn't reach Buttondown: #{e.class}: #{e.message}"
     end
 
     def request_headers(collision_behavior)
@@ -140,33 +144,32 @@ module Buttondown
       status = response.code.to_i
       raw_body = response.body.to_s
 
-      if response.is_a?(Net::HTTPSuccess)
-        return {} if raw_body.empty?
+      return success_body(status, raw_body) if response.is_a?(Net::HTTPSuccess)
 
-        parsed = parse_json(raw_body)
+      raise_api_error(response, status, raw_body)
+    end
 
-        unless parsed.is_a?(Hash)
-          raise InvalidResponseError.new(
-            "Buttondown returned a #{status} whose body wasn't a JSON object",
-            status: status,
-            raw_body: raw_body
-          )
-        end
+    def success_body(status, raw_body)
+      return {} if raw_body.empty?
 
-        return parsed
-      end
+      parsed = parse_json(raw_body)
+      return parsed if parsed.is_a?(Hash)
 
+      raise InvalidResponseError.new(
+        "Buttondown returned a #{status} whose body wasn't a JSON object",
+        status: status,
+        raw_body: raw_body
+      )
+    end
+
+    def raise_api_error(response, status, raw_body)
       parsed = parse_json(raw_body)
       parsed = {} unless parsed.is_a?(Hash)
 
       code = parsed["code"] || parsed["error_code"]
       message = parsed["detail"] || parsed["error"] || parsed["message"] || response.message
 
-      error_class = ERROR_CODES[code] ||
-        STATUS_ERRORS[status] ||
-        ((status >= 500) ? ServerError : APIError)
-
-      raise error_class.new(
+      raise error_class_for(code, status).new(
         message,
         status: status,
         code: code,
@@ -174,6 +177,11 @@ module Buttondown
         raw_body: raw_body,
         headers: response.to_hash.transform_values(&:first)
       )
+    end
+
+    # Code before status: a code is more specific than the status carrying it.
+    def error_class_for(code, status)
+      ERROR_CODES[code] || STATUS_ERRORS[status] || (status >= 500 ? ServerError : APIError)
     end
 
     def parse_json(string)

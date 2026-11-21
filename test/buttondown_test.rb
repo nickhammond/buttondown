@@ -32,7 +32,12 @@ class TestButtondown < Minitest::Test
 
     it "loads net/http but nothing from Rails or ActiveSupport" do
       refute_empty $LOADED_FEATURES.grep(%r{net/http})
-      assert_empty $LOADED_FEATURES.grep(%r{active_support|activesupport|/rails})
+
+      # Asked as "is it loaded?" rather than by path: matching paths loosely
+      # catches unrelated files, e.g. simplecov ships a profile named rails.rb.
+      refute defined?(Rails), "Rails is loaded"
+      refute defined?(ActiveSupport), "ActiveSupport is loaded"
+      assert_empty $LOADED_FEATURES.grep(%r{/(activesupport|railties|actionpack)-}), "a Rails gem is loaded"
     end
   end
 end
