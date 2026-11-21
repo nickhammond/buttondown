@@ -17,9 +17,11 @@ jobs:
     strategy:
       matrix:
         ruby:
-          - '3.3.10'
-          - '3.4.8'
-          - '4.0.1'
+          # Series, not patch pins: only the latest patch of each series is
+          # built for the runner images, so a pinned patch rots.
+          - '3.3'
+          - '3.4'
+          - '4.0'
 
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

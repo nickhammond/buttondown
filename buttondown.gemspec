@@ -10,13 +10,13 @@ Gem::Specification.new do |spec|
 
   spec.summary = "Ruby client for the Buttondown newsletter API"
   spec.description = "A dependency-free Ruby client for the Buttondown newsletter API."
-  spec.homepage = "https://github.com/nickhammond/buttondown-gem"
+  spec.homepage = "https://github.com/nickhammond/buttondown"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.3.0"
 
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "https://github.com/nickhammond/buttondown-gem"
-  spec.metadata["changelog_uri"] = "https://github.com/nickhammond/buttondown-gem/releases"
+  spec.metadata["source_code_uri"] = "https://github.com/nickhammond/buttondown"
+  spec.metadata["changelog_uri"] = "https://github.com/nickhammond/buttondown/releases"
   spec.metadata["rubygems_mfa_required"] = "true"
 
   # Specify which files should be added to the gem when it is released.

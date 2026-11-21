@@ -178,7 +178,7 @@ bin/release 0.1.1
 ## Contributing
 
 Bug reports and pull requests are welcome at
-https://github.com/nickhammond/buttondown-gem.
+https://github.com/nickhammond/buttondown.
 
 ## License
 
