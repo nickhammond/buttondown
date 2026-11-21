@@ -12,8 +12,7 @@ Nothing yet.
 
 Initial release.
 
-- `Buttondown::Client#create_subscriber` (aliased as `#subscribe`), covering
-  `POST /v1/subscribers`
+- `Buttondown::Client#subscribe`, covering `POST /v1/subscribers`
 - Token from the constructor, defaulting to `ENV["BUTTONDOWN_API_KEY"]`; a blank
   token raises `Buttondown::ConfigurationError` at construction
 - `type:` defaults to `"regular"`, skipping Buttondown's double opt-in for the

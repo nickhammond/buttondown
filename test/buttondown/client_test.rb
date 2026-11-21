@@ -67,7 +67,7 @@ class TestButtondownClient < Minitest::Test
         ["an address with no dot in the host", "nick@example"]
       ].each do |description, input|
         it "rejects #{description} without making a request" do
-          assert_raises(Buttondown::InvalidEmailError) { client.create_subscriber(input) }
+          assert_raises(Buttondown::InvalidEmailError) { client.subscribe(input) }
           assert_not_requested :post, CREATE_URL
         end
       end
@@ -77,20 +77,20 @@ class TestButtondownClient < Minitest::Test
           .with(body: {email_address: "nick@example.com", type: "regular"}.to_json)
           .to_return(status: 201, body: subscriber_body)
 
-        client.create_subscriber("  nick@example.com\n")
+        client.subscribe("  nick@example.com\n")
 
         assert_requested stub
       end
 
       it "raises a Buttondown::Error, so one rescue covers it" do
-        error = assert_raises(Buttondown::InvalidEmailError) { client.create_subscriber("") }
+        error = assert_raises(Buttondown::InvalidEmailError) { client.subscribe("") }
 
         assert_kind_of Buttondown::Error, error
         assert_kind_of Buttondown::InvalidArgumentError, error
       end
 
       it "keeps the address out of the message, which reaches error trackers" do
-        error = assert_raises(Buttondown::InvalidEmailError) { client.create_subscriber("nick@example") }
+        error = assert_raises(Buttondown::InvalidEmailError) { client.subscribe("nick@example") }
 
         refute_includes error.message, "nick@example"
       end
@@ -113,7 +113,7 @@ class TestButtondownClient < Minitest::Test
             }
           ).to_return(status: 201, body: subscriber_body)
 
-        client.create_subscriber("nick@example.com")
+        client.subscribe("nick@example.com")
 
         assert_requested stub
       end
@@ -123,7 +123,7 @@ class TestButtondownClient < Minitest::Test
           .with(headers: {"X-Buttondown-Collision-Behavior" => "overwrite"})
           .to_return(status: 200, body: subscriber_body)
 
-        client.create_subscriber("nick@example.com", collision_behavior: "overwrite")
+        client.subscribe("nick@example.com", collision_behavior: "overwrite")
 
         assert_requested stub
       end
@@ -133,7 +133,7 @@ class TestButtondownClient < Minitest::Test
           .with { |request| !request.headers.key?("X-Buttondown-Collision-Behavior") }
           .to_return(status: 201, body: subscriber_body)
 
-        client.create_subscriber("nick@example.com", collision_behavior: nil)
+        client.subscribe("nick@example.com", collision_behavior: nil)
 
         assert_requested stub
       end
@@ -143,7 +143,7 @@ class TestButtondownClient < Minitest::Test
           .with(body: {email_address: "nick@example.com", type: "unactivated"}.to_json)
           .to_return(status: 201, body: subscriber_body(type: "unactivated"))
 
-        client.create_subscriber("nick@example.com", type: "unactivated")
+        client.subscribe("nick@example.com", type: "unactivated")
 
         assert_requested stub
       end
@@ -153,7 +153,7 @@ class TestButtondownClient < Minitest::Test
           .with(body: {email_address: "nick@example.com"}.to_json)
           .to_return(status: 201, body: subscriber_body(type: "unactivated"))
 
-        client.create_subscriber("nick@example.com", type: nil)
+        client.subscribe("nick@example.com", type: nil)
 
         assert_requested stub
       end
@@ -163,7 +163,7 @@ class TestButtondownClient < Minitest::Test
           .with(headers: {"X-API-Version" => "2025-01-01"})
           .to_return(status: 201, body: subscriber_body)
 
-        client("secret", api_version: "2025-01-01").create_subscriber("nick@example.com")
+        client("secret", api_version: "2025-01-01").subscribe("nick@example.com")
 
         assert_requested stub
       end
@@ -172,14 +172,6 @@ class TestButtondownClient < Minitest::Test
         stub = stub_request(:post, CREATE_URL)
           .with(headers: {"User-Agent" => "buttondown-rb/#{Buttondown::VERSION}"})
           .to_return(status: 201, body: subscriber_body)
-
-        client.create_subscriber("nick@example.com")
-
-        assert_requested stub
-      end
-
-      it "aliases subscribe to create_subscriber" do
-        stub = stub_create
 
         client.subscribe("nick@example.com")
 
@@ -191,7 +183,7 @@ class TestButtondownClient < Minitest::Test
       it "returns a Subscriber on 201" do
         stub_create
 
-        s = client.create_subscriber("nick@example.com")
+        s = client.subscribe("nick@example.com")
 
         assert_kind_of Buttondown::Subscriber, s
         assert_equal "sub_123", s.id
@@ -204,7 +196,7 @@ class TestButtondownClient < Minitest::Test
       it "returns the pre-existing record when a duplicate merges" do
         stub_create(status: 200, body: subscriber_body(type: "unsubscribed"))
 
-        s = client.create_subscriber("nick@example.com")
+        s = client.subscribe("nick@example.com")
 
         refute s.regular?
         assert s.terminal?
@@ -213,7 +205,7 @@ class TestButtondownClient < Minitest::Test
       it "surfaces a subscriber still pending double opt-in" do
         stub_create(body: subscriber_body(type: "unactivated"))
 
-        s = client.create_subscriber("nick@example.com")
+        s = client.subscribe("nick@example.com")
 
         assert s.unactivated?
         refute s.regular?
@@ -222,7 +214,7 @@ class TestButtondownClient < Minitest::Test
       it "round-trips the raw body through #to_h" do
         stub_create
 
-        s = client.create_subscriber("nick@example.com")
+        s = client.subscribe("nick@example.com")
 
         assert_equal JSON.parse(subscriber_body), s.to_h
       end
@@ -230,7 +222,7 @@ class TestButtondownClient < Minitest::Test
       it "tolerates an empty success body" do
         stub_create(body: "")
 
-        s = client.create_subscriber("nick@example.com")
+        s = client.subscribe("nick@example.com")
 
         assert_nil s.id
       end
@@ -238,7 +230,7 @@ class TestButtondownClient < Minitest::Test
       it "raises when a 2xx body isn't JSON" do
         stub_create(body: "<html>maintenance</html>")
 
-        error = assert_raises(Buttondown::InvalidResponseError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::InvalidResponseError) { client.subscribe("nick@example.com") }
 
         assert_equal 201, error.status
         assert_equal "<html>maintenance</html>", error.raw_body
@@ -247,7 +239,7 @@ class TestButtondownClient < Minitest::Test
       it "raises when a 2xx body is JSON but not an object" do
         stub_create(body: "[]")
 
-        assert_raises(Buttondown::InvalidResponseError) { client.create_subscriber("nick@example.com") }
+        assert_raises(Buttondown::InvalidResponseError) { client.subscribe("nick@example.com") }
       end
     end
 
@@ -258,7 +250,7 @@ class TestButtondownClient < Minitest::Test
           body: {code: "subscriber_suppressed", detail: "This subscriber is suppressed"}.to_json
         )
 
-        error = assert_raises(Buttondown::SubscriberSuppressedError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::SubscriberSuppressedError) { client.subscribe("nick@example.com") }
 
         assert_kind_of Buttondown::BadRequestError, error
         assert_equal 400, error.status
@@ -274,7 +266,7 @@ class TestButtondownClient < Minitest::Test
         stub_create(status: [400, "Bad Request"], body: {code: "email_already_exists"}.to_json)
 
         error = assert_raises(Buttondown::BadRequestError) do
-          client.create_subscriber("nick@example.com", collision_behavior: nil)
+          client.subscribe("nick@example.com", collision_behavior: nil)
         end
 
         refute_nil error.code
@@ -283,7 +275,7 @@ class TestButtondownClient < Minitest::Test
       it "survives an unparseable error body" do
         stub_create(status: [400, "Bad Request"], body: "oops")
 
-        error = assert_raises(Buttondown::BadRequestError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::BadRequestError) { client.subscribe("nick@example.com") }
 
         assert_nil error.code
         assert_equal({}, error.body)
@@ -294,7 +286,7 @@ class TestButtondownClient < Minitest::Test
       it "falls back to the status message on an empty error body" do
         stub_create(status: [400, "Bad Request"], body: "")
 
-        error = assert_raises(Buttondown::BadRequestError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::BadRequestError) { client.subscribe("nick@example.com") }
 
         assert_includes error.message, "Bad Request"
       end
@@ -302,13 +294,13 @@ class TestButtondownClient < Minitest::Test
       it "maps 401 to AuthenticationError" do
         stub_create(status: [401, "Unauthorized"], body: "")
 
-        assert_raises(Buttondown::AuthenticationError) { client.create_subscriber("nick@example.com") }
+        assert_raises(Buttondown::AuthenticationError) { client.subscribe("nick@example.com") }
       end
 
       it "maps a disabled paid feature to FeatureDisabledError" do
         stub_create(status: [403, "Forbidden"], body: {code: "feature_disabled"}.to_json)
 
-        error = assert_raises(Buttondown::FeatureDisabledError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::FeatureDisabledError) { client.subscribe("nick@example.com") }
 
         assert_kind_of Buttondown::ForbiddenError, error
       end
@@ -316,7 +308,7 @@ class TestButtondownClient < Minitest::Test
       it "leaves a 403 without a code as ForbiddenError" do
         stub_create(status: [403, "Forbidden"], body: "")
 
-        error = assert_raises(Buttondown::ForbiddenError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::ForbiddenError) { client.subscribe("nick@example.com") }
 
         refute_kind_of Buttondown::FeatureDisabledError, error
       end
@@ -324,13 +316,13 @@ class TestButtondownClient < Minitest::Test
       it "maps 422 to UnprocessableEntityError" do
         stub_create(status: [422, "Unprocessable Content"], body: "")
 
-        assert_raises(Buttondown::UnprocessableEntityError) { client.create_subscriber("nick@example.com") }
+        assert_raises(Buttondown::UnprocessableEntityError) { client.subscribe("nick@example.com") }
       end
 
       it "exposes Retry-After on a rate limit" do
         stub_create(status: [429, "Too Many Requests"], body: "", headers: {"Retry-After" => "3600"})
 
-        error = assert_raises(Buttondown::RateLimitError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::RateLimitError) { client.subscribe("nick@example.com") }
 
         assert_equal 3600, error.retry_after
       end
@@ -338,7 +330,7 @@ class TestButtondownClient < Minitest::Test
       it "returns a nil Retry-After when the header is absent" do
         stub_create(status: [429, "Too Many Requests"], body: "")
 
-        error = assert_raises(Buttondown::RateLimitError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::RateLimitError) { client.subscribe("nick@example.com") }
 
         assert_nil error.retry_after
       end
@@ -346,7 +338,7 @@ class TestButtondownClient < Minitest::Test
       it "maps 500 to ServerError and keeps the status message" do
         stub_create(status: [500, "Application Error"], body: "")
 
-        error = assert_raises(Buttondown::ServerError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::ServerError) { client.subscribe("nick@example.com") }
 
         assert_includes error.message, "Application Error"
       end
@@ -354,13 +346,13 @@ class TestButtondownClient < Minitest::Test
       it "maps 503 to ServerError" do
         stub_create(status: [503, "Service Unavailable"], body: "")
 
-        assert_raises(Buttondown::ServerError) { client.create_subscriber("nick@example.com") }
+        assert_raises(Buttondown::ServerError) { client.subscribe("nick@example.com") }
       end
 
       it "falls back to a bare APIError for an unmapped status" do
         stub_create(status: [418, "I'm a teapot"], body: "")
 
-        error = assert_raises(Buttondown::APIError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::APIError) { client.subscribe("nick@example.com") }
 
         assert_equal 418, error.status
       end
@@ -370,7 +362,7 @@ class TestButtondownClient < Minitest::Test
           WebMock.reset!
           stub_create(status: [status, "Error"], body: "")
 
-          error = assert_raises(Buttondown::Error) { client.create_subscriber("nick@example.com") }
+          error = assert_raises(Buttondown::Error) { client.subscribe("nick@example.com") }
 
           assert_kind_of Buttondown::APIError, error
           assert_equal status, error.status
@@ -382,7 +374,7 @@ class TestButtondownClient < Minitest::Test
       it "wraps a connect timeout" do
         stub_request(:post, CREATE_URL).to_timeout
 
-        error = assert_raises(Buttondown::TimeoutError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::TimeoutError) { client.subscribe("nick@example.com") }
 
         assert_kind_of Buttondown::ConnectionError, error
       end
@@ -390,13 +382,13 @@ class TestButtondownClient < Minitest::Test
       it "wraps a read timeout" do
         stub_request(:post, CREATE_URL).to_raise(Net::ReadTimeout)
 
-        assert_raises(Buttondown::TimeoutError) { client.create_subscriber("nick@example.com") }
+        assert_raises(Buttondown::TimeoutError) { client.subscribe("nick@example.com") }
       end
 
       it "wraps a refused connection as ConnectionError, not a timeout" do
         stub_request(:post, CREATE_URL).to_raise(Errno::ECONNREFUSED)
 
-        error = assert_raises(Buttondown::ConnectionError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::ConnectionError) { client.subscribe("nick@example.com") }
 
         refute_kind_of Buttondown::TimeoutError, error
       end
@@ -404,13 +396,13 @@ class TestButtondownClient < Minitest::Test
       it "wraps a DNS failure" do
         stub_request(:post, CREATE_URL).to_raise(SocketError)
 
-        assert_raises(Buttondown::ConnectionError) { client.create_subscriber("nick@example.com") }
+        assert_raises(Buttondown::ConnectionError) { client.subscribe("nick@example.com") }
       end
 
       it "wraps a TLS failure" do
         stub_request(:post, CREATE_URL).to_raise(OpenSSL::SSL::SSLError)
 
-        assert_raises(Buttondown::ConnectionError) { client.create_subscriber("nick@example.com") }
+        assert_raises(Buttondown::ConnectionError) { client.subscribe("nick@example.com") }
       end
 
       # The mitigation for wrapping: the original is still reachable for APM and
@@ -418,7 +410,7 @@ class TestButtondownClient < Minitest::Test
       it "keeps the original exception as #cause" do
         stub_request(:post, CREATE_URL).to_raise(SocketError)
 
-        error = assert_raises(Buttondown::ConnectionError) { client.create_subscriber("nick@example.com") }
+        error = assert_raises(Buttondown::ConnectionError) { client.subscribe("nick@example.com") }
 
         assert_kind_of SocketError, error.cause
       end
@@ -429,7 +421,7 @@ class TestButtondownClient < Minitest::Test
         stub_create
         Buttondown::Subscriber.expects(:new).raises(NoMethodError)
 
-        assert_raises(NoMethodError) { client.create_subscriber("nick@example.com") }
+        assert_raises(NoMethodError) { client.subscribe("nick@example.com") }
       end
     end
 
@@ -441,7 +433,7 @@ class TestButtondownClient < Minitest::Test
         Net::HTTP.any_instance.expects(:read_timeout=).with(10)
         Net::HTTP.any_instance.expects(:write_timeout=).with(10)
 
-        client.create_subscriber("nick@example.com")
+        client.subscribe("nick@example.com")
       end
 
       it "accepts per-client timeouts" do
@@ -449,7 +441,7 @@ class TestButtondownClient < Minitest::Test
 
         Net::HTTP.any_instance.expects(:read_timeout=).with(2)
 
-        client("secret", read_timeout: 2).create_subscriber("nick@example.com")
+        client("secret", read_timeout: 2).subscribe("nick@example.com")
       end
 
       it "never silently retries a POST" do
@@ -457,7 +449,7 @@ class TestButtondownClient < Minitest::Test
 
         Net::HTTP.any_instance.expects(:max_retries=).with(0)
 
-        client.create_subscriber("nick@example.com")
+        client.subscribe("nick@example.com")
       end
 
       # Asserted behaviorally rather than with a mocked setter: stubbing
@@ -467,7 +459,7 @@ class TestButtondownClient < Minitest::Test
         stub = stub_request(:post, "https://api.buttondown.com/v1/subscribers")
           .to_return(status: 201, body: subscriber_body)
 
-        client.create_subscriber("nick@example.com")
+        client.subscribe("nick@example.com")
 
         assert_requested stub
         assert_not_requested :post, "http://api.buttondown.com/v1/subscribers"

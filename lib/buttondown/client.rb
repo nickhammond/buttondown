@@ -82,13 +82,12 @@ module Buttondown
     # Because "add" turns a duplicate into a success returning the pre-existing
     # record, a successful call does NOT mean this person will receive email.
     # Check Subscriber#regular?.
-    def create_subscriber(email, type: DEFAULT_TYPE, collision_behavior: DEFAULT_COLLISION_BEHAVIOR)
+    def subscribe(email, type: DEFAULT_TYPE, collision_behavior: DEFAULT_COLLISION_BEHAVIOR)
       payload = {email_address: normalize_email(email)}
       payload[:type] = type if type
 
       Subscriber.new(post("/subscribers", payload, collision_behavior: collision_behavior))
     end
-    alias_method :subscribe, :create_subscriber
 
     # Keeps the token out of logs, error-tracker breadcrumbs and binding.irb.
     def inspect

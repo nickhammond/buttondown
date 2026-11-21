@@ -23,78 +23,42 @@ gem "buttondown"
 client = Buttondown::Client.new            # reads ENV["BUTTONDOWN_API_KEY"]
 client = Buttondown::Client.new("your-key") # or pass it explicitly
 
-subscriber = client.create_subscriber("subscriber@example.com")
+subscriber = client.subscribe("subscriber@example.com")
 subscriber.regular? # => true
 ```
-
-`subscribe` is an alias for `create_subscriber`, whichever reads better at your
-call site.
 
 A blank token raises `Buttondown::ConfigurationError` from the constructor, so a
 misconfigured client fails at boot rather than inside a background job later.
 
-### Double opt-in
+### Options
 
-This is the most surprising thing about Buttondown, so it's worth stating plainly:
-**Buttondown defaults to double opt-in.** A new subscriber lands as `unactivated`
-and receives a confirmation email before they'll get anything else.
-
-This gem sends `type: "regular"` by default, which skips that for the subscriber
-you're creating. Pass `type: nil` to let Buttondown's own default apply instead:
+`subscribe` sends two defaults, both overridable per call:
 
 ```ruby
-client.create_subscriber("subscriber@example.com", type: nil) # => unactivated, must confirm
+# type: "regular" by default. Pass nil to send no type at all.
+client.subscribe(email, type: nil)
+
+# collision_behavior: "add" by default, sent as the
+# X-Buttondown-Collision-Behavior header. Pass nil to omit the header.
+client.subscribe(email, collision_behavior: "overwrite")
+client.subscribe(email, collision_behavior: nil)
 ```
 
-Double opt-in cannot be turned off account-wide — it's a per-subscriber decision
-at creation time.
+What Buttondown does with those values — opt-in states, how collisions resolve,
+rate limits — is documented at [docs.buttondown.com](https://docs.buttondown.com).
 
-### Duplicates, and why success doesn't mean "subscribed"
-
-By default this gem sends `X-Buttondown-Collision-Behavior: add`, so subscribing
-someone who already exists **merges into the existing record and succeeds** rather
-than returning a 400.
-
-The consequence is worth internalizing: a successful call does *not* mean this
-person will receive your newsletter. You may have just merged into a record that
-is `unactivated`, or one belonging to someone who unsubscribed. Check the type:
+The call returns a `Buttondown::Subscriber`. Because a merged duplicate also
+comes back as a success, check the type before assuming the address is active:
 
 ```ruby
-subscriber = client.create_subscriber("subscriber@example.com")
+subscriber = client.subscribe("subscriber@example.com")
 
-if subscriber.regular?
-  # they'll receive email
-elsif subscriber.unactivated?
-  # created, but still needs to confirm
-elsif subscriber.terminal?
-  # unsubscribed, blocked, complained or undeliverable -- don't mail them
-end
+subscriber.type         # => "regular"
+subscriber.regular?     # will receive email
+subscriber.unactivated? # created, not yet confirmed
+subscriber.terminal?    # unsubscribed, blocked, complained or undeliverable
+subscriber.to_h         # the raw parsed body
 ```
-
-Other collision behaviors:
-
-```ruby
-# Replace the existing record. Cannot change a terminal type, and raises
-# Buttondown::SubscriberSuppressedError when it would.
-client.create_subscriber(email, collision_behavior: "overwrite")
-
-# Omit the header entirely, so a duplicate raises Buttondown::BadRequestError.
-# This is the only way to detect "this address is already on the list".
-client.create_subscriber(email, collision_behavior: nil)
-```
-
-Because the default merges, retrying a failed call is safe.
-
-### Rate limits
-
-Buttondown limits subscriber creation to **100 requests per day** by default,
-growing with your newsletter's reputation. Two things follow:
-
-- Call this from a background job, not inline in a web request
-- Importing a list in bulk belongs in Buttondown's CSV import, not this endpoint
-
-On a 429 the gem raises `Buttondown::RateLimitError`, which exposes
-`#retry_after` in seconds when Buttondown sends the header and `nil` otherwise.
 
 ### Errors
 
@@ -105,14 +69,14 @@ enough to be safe. Rescue the specific classes where you want to act differently
 |---|---|---|
 | `ConfigurationError` | No token at construction | No — fix the config |
 | `InvalidEmailError` | Blank or obviously malformed address. **No request is made** | No |
-| `SubscriberSuppressedError` | They unsubscribed, bounced or complained | No — they opted out |
+| `SubscriberSuppressedError` | 400 with the `subscriber_suppressed` code | No |
 | `BadRequestError` | A validation failure. Read `#code` and `#body` | No |
-| `AuthenticationError` | 401. Bad or revoked key | No |
-| `FeatureDisabledError` | 403. Your plan lacks the feature, e.g. tags | No |
+| `AuthenticationError` | 401 | No |
+| `FeatureDisabledError` | 403 with the `feature_disabled` code | No |
 | `ForbiddenError` | Any other 403 | No |
 | `NotFoundError` | 404 | No |
 | `UnprocessableEntityError` | 422 | No |
-| `RateLimitError` | 429. See `#retry_after` | Yes, after a wait |
+| `RateLimitError` | 429. Exposes `#retry_after` when the header is sent | Yes, after a wait |
 | `ServerError` | 5xx | Yes |
 | `TimeoutError` | Connect, read or write timed out | Yes |
 | `ConnectionError` | DNS, TLS or socket failure | Yes |
@@ -122,9 +86,9 @@ Every HTTP error carries `#status`, `#code`, `#body`, `#raw_body` and `#headers`
 
 ```ruby
 begin
-  client.create_subscriber(email)
+  client.subscribe(email)
 rescue Buttondown::SubscriberSuppressedError
-  # they opted out; don't retry and don't report it as a failure
+  # terminal; retrying won't help
 rescue Buttondown::RateLimitError => e
   retry_in(e.retry_after || 1.hour)
 rescue Buttondown::ConnectionError, Buttondown::ServerError
@@ -144,15 +108,13 @@ retry_on Buttondown::ConnectionError, Buttondown::ServerError
 discard_on Buttondown::SubscriberSuppressedError, Buttondown::InvalidEmailError
 ```
 
-Note that email validation here is deliberately loose — the gem should never be
-stricter than Buttondown itself, so it rejects only what no mail server would
-accept. One known consequence: dotless hosts like `user@localhost` are rejected.
+Email validation before the request is deliberately loose, so the gem is never
+stricter than the API itself. One consequence: dotless hosts like
+`user@localhost` are rejected.
 
 ### API version
 
-Requests pin `X-API-Version: 2026-04-01`. Without a pinned version Buttondown
-uses whatever is set on your account's settings page, which can change under you.
-Override it per client:
+Requests pin `X-API-Version: 2026-04-01`. Override it per client:
 
 ```ruby
 Buttondown::Client.new(token, api_version: "2025-01-01")
