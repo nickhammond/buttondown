@@ -7,7 +7,7 @@ gemspec
 
 gem "gem-release", "~> 2.2"
 gem "guard", "~> 2.18"
-gem "guard-minitest", "~> 2.4"
+gem "guard-minitest", "~> 3.0"
 gem "guard-standardrb", "~> 0.2"
 gem "minitest", "~> 5.20"
 gem "minitest-reporters", "~> 1.3"
