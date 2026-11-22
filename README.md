@@ -124,11 +124,6 @@ rescue Buttondown::APIError => e
 end
 ```
 
-Error messages can contain the subscriber's email address. Buttondown quotes it
-back in `detail` for codes like `email_already_exists`, and the gem passes that
-message through rather than rewriting it. If addresses shouldn't reach your
-error tracker, report the structured fields as above and scrub at that boundary.
-
 Connection failures are wrapped, but the original exception is preserved as
 `#cause` if you need it.
 
