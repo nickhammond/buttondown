@@ -259,17 +259,35 @@ class TestButtondownClient < Minitest::Test
         assert_equal "This subscriber is suppressed", error.body["detail"]
       end
 
-      # Deliberately does not assert a code string: the duplicate-collision code
-      # is not yet verified against the live API, and a guessed key would pass
-      # here while silently misclassifying in production.
-      it "raises BadRequestError for a duplicate when the collision header is omitted" do
-        stub_create(status: [400, "Bad Request"], body: {code: "email_already_exists"}.to_json)
+      # Code and status confirmed against the live API on 2026-11-21.
+      it "maps a duplicate to EmailAlreadyExistsError when the collision header is omitted" do
+        stub_create(
+          status: [400, "Bad Request"],
+          body: {code: "email_already_exists", detail: "That email address is already subscribed"}.to_json
+        )
 
-        error = assert_raises(Buttondown::BadRequestError) do
+        error = assert_raises(Buttondown::EmailAlreadyExistsError) do
           client.subscribe("nick@example.com", collision_behavior: nil)
         end
 
-        refute_nil error.code
+        assert_kind_of Buttondown::BadRequestError, error
+        assert_equal 400, error.status
+        assert_equal "email_already_exists", error.code
+      end
+
+      # Buttondown's firewall rejects reserved and disposable domains outright.
+      # Code and status confirmed against the live API on 2026-11-21.
+      it "maps a firewalled address to SubscriberBlockedError" do
+        stub_create(
+          status: [400, "Bad Request"],
+          body: {code: "subscriber_blocked", detail: "This subscriber was blocked by your firewall."}.to_json
+        )
+
+        error = assert_raises(Buttondown::SubscriberBlockedError) { client.subscribe("nick@example.com") }
+
+        assert_kind_of Buttondown::BadRequestError, error
+        assert_equal 400, error.status
+        assert_equal "subscriber_blocked", error.code
       end
 
       it "survives an unparseable error body" do

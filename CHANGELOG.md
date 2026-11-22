@@ -6,7 +6,11 @@ hierarchy is listed.
 
 ## Unreleased
 
-Nothing yet.
+- Added `Buttondown::EmailAlreadyExistsError` and
+  `Buttondown::SubscriberBlockedError`, both subclasses of
+  `Buttondown::BadRequestError`, mapped from the `email_already_exists` and
+  `subscriber_blocked` codes. Previously both surfaced as plain
+  `BadRequestError`; existing rescues keep working.
 
 ## 0.1.0 - 2026-11-21
 
