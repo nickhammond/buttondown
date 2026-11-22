@@ -12,7 +12,7 @@ hierarchy is listed.
   `subscriber_blocked` codes. Previously both surfaced as plain
   `BadRequestError`; existing rescues keep working.
 
-## 0.1.0
+## 0.1.0 - 2026-11-21
 
 Initial release.
 

@@ -47,12 +47,5 @@ module Buttondown
     def to_h
       @attributes.dup
     end
-
-    # Keeps the email address out of anything that inspects this object --
-    # logs, error-tracker breadcrumbs, binding.irb. Error messages are a
-    # separate matter; see the README.
-    def inspect
-      "#<#{self.class.name} id=#{id.inspect} type=#{type.inspect}>"
-    end
   end
 end

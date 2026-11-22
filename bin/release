@@ -1,7 +1,7 @@
 #!/bin/bash -eux
-# Usage: bin/release 0.1.0
+# Usage: bin/release 0.1.1
 
 VERSION=$1
 
-./bin/test
+bin/ci
 gem bump --version $VERSION --push --tag --release

@@ -5,8 +5,8 @@ require_relative "lib/buttondown/version"
 Gem::Specification.new do |spec|
   spec.name = "buttondown"
   spec.version = Buttondown::VERSION
-  spec.authors = ["Nick Hammond"]
-  spec.email = ["nick@shipyrd.io"]
+  spec.authors = ["Nick Kelly"]
+  spec.email = ["nick@fromthekeyboard.com"]
 
   spec.summary = "Ruby client for the Buttondown newsletter API"
   spec.description = "A Ruby client for the Buttondown newsletter API."
@@ -16,7 +16,8 @@ Gem::Specification.new do |spec|
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/nickhammond/buttondown"
-  spec.metadata["changelog_uri"] = "https://github.com/nickhammond/buttondown/releases"
+  spec.metadata["changelog_uri"] = "https://github.com/nickhammond/buttondown/blob/main/CHANGELOG.md"
+  spec.metadata["bug_tracker_uri"] = "https://github.com/nickhammond/buttondown/issues"
   spec.metadata["rubygems_mfa_required"] = "true"
 
   # Specify which files should be added to the gem when it is released.

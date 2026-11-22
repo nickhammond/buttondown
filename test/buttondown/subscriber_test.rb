@@ -70,12 +70,5 @@ class TestButtondownSubscriber < Minitest::Test
       assert_equal({}, Buttondown::Subscriber.new.to_h)
       assert_equal({}, Buttondown::Subscriber.new(nil).to_h)
     end
-
-    it "keeps the email address out of #inspect" do
-      s = subscriber("id" => "sub_123", "email_address" => "nick@example.com", "type" => "regular")
-
-      refute_includes s.inspect, "nick@example.com"
-      assert_includes s.inspect, "sub_123"
-    end
   end
 end
