@@ -44,18 +44,38 @@ client.subscribe(email, collision_behavior: nil)
 What Buttondown does with those values — opt-in states, how collisions resolve,
 rate limits — is documented at [docs.buttondown.com](https://docs.buttondown.com).
 
-The call returns a `Buttondown::Subscriber`. Because a merged duplicate also
-comes back as a success, check the type before assuming the address is active:
+### The subscriber
+
+`subscribe` returns a `Buttondown::Subscriber`, a thin read-only view of the
+JSON Buttondown sent back:
 
 ```ruby
 subscriber = client.subscribe("subscriber@example.com")
 
-subscriber.type         # => "regular"
+subscriber.id            # => "sub_..." (a TypeID on 2026-01-01 and later)
+subscriber.email_address # => "subscriber@example.com"
+subscriber.type          # => "regular"
+subscriber.to_h          # the raw parsed body
+```
+
+Because a merged duplicate also comes back as a success, returning the
+pre-existing record, check the type before assuming the address is active:
+
+```ruby
 subscriber.regular?     # will receive email
 subscriber.unactivated? # created, not yet confirmed
 subscriber.terminal?    # unsubscribed, blocked, complained or undeliverable
-subscriber.to_h         # the raw parsed body
 ```
+
+Fields without a reader stay reachable, so a new API field doesn't need a gem
+release:
+
+```ruby
+subscriber[:creation_date]
+```
+
+`inspect` shows only the id and type — subscriber email addresses stay out of
+logs and error trackers.
 
 ### Errors
 
