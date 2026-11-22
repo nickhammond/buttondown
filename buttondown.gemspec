@@ -5,8 +5,8 @@ require_relative "lib/buttondown/version"
 Gem::Specification.new do |spec|
   spec.name = "buttondown"
   spec.version = Buttondown::VERSION
-  spec.authors = ["Nick Hammond"]
-  spec.email = ["nick@shipyrd.io"]
+  spec.authors = ["Nick Kelly"]
+  spec.email = ["nick@fromthekeyboard.com"]
 
   spec.summary = "Ruby client for the Buttondown newsletter API"
   spec.description = "A dependency-free Ruby client for the Buttondown newsletter API."
