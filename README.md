@@ -2,8 +2,7 @@
 
 A Ruby client for the [Buttondown](https://buttondown.com) newsletter API.
 
-No runtime dependencies — just Net::HTTP from the standard library. It raises its
-own errors, so nothing from the HTTP layer leaks into your rescues.
+No runtime dependencies — just Net::HTTP from the standard library.
 
 ### Built for Shipyrd
 
