@@ -74,9 +74,6 @@ release:
 subscriber[:creation_date]
 ```
 
-`inspect` shows only the id and type — subscriber email addresses stay out of
-logs and error trackers.
-
 ### Errors
 
 Everything the gem raises descends from `Buttondown::Error`, so one rescue is
