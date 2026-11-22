@@ -55,6 +55,16 @@ module Buttondown
 
   class SubscriberSuppressedError < BadRequestError; end
 
+  # The address is already a subscriber. Only reachable with
+  # `collision_behavior: nil` -- "add" and "overwrite" merge instead of
+  # failing, so they never raise this.
+  class EmailAlreadyExistsError < BadRequestError; end
+
+  # Buttondown's firewall rejected the address before creating anything:
+  # a reserved domain such as example.com, a disposable provider, or too high
+  # a risk score. Retrying the same address will fail the same way.
+  class SubscriberBlockedError < BadRequestError; end
+
   class AuthenticationError < APIError; end
 
   class ForbiddenError < APIError; end
@@ -81,6 +91,8 @@ module Buttondown
   # subscriber classifies correctly whichever status carries it.
   ERROR_CODES = {
     "subscriber_suppressed" => SubscriberSuppressedError,
+    "email_already_exists" => EmailAlreadyExistsError,
+    "subscriber_blocked" => SubscriberBlockedError,
     "feature_disabled" => FeatureDisabledError
   }.freeze
 

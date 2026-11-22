@@ -48,7 +48,9 @@ module Buttondown
       @attributes.dup
     end
 
-    # Keeps subscriber email addresses out of logs and error trackers.
+    # Keeps the email address out of anything that inspects this object --
+    # logs, error-tracker breadcrumbs, binding.irb. Error messages are a
+    # separate matter; see the README.
     def inspect
       "#<#{self.class.name} id=#{id.inspect} type=#{type.inspect}>"
     end

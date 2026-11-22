@@ -192,8 +192,12 @@ module Buttondown
 
     # Stands in for the Rails-flavored blank check the extracted code used, and
     # guards a 100/day rate limit against addresses no mail server would accept.
-    # The message deliberately omits the address, which is PII that would
-    # otherwise land in an error tracker.
+    #
+    # This message omits the address, but that is a local courtesy rather than a
+    # gem-wide guarantee: Buttondown quotes the address back in its own error
+    # `detail` (see `email_already_exists`) and APIError#to_s passes that
+    # through unchanged. Scrub at the error-tracker boundary if messages must
+    # be address-free.
     def normalize_email(email)
       value = email.to_s.strip
 

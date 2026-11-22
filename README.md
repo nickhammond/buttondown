@@ -67,6 +67,8 @@ enough to be safe. Rescue the specific classes where you want to act differently
 | `ConfigurationError` | No token at construction | No — fix the config |
 | `InvalidEmailError` | Blank or obviously malformed address. **No request is made** | No |
 | `SubscriberSuppressedError` | 400 with the `subscriber_suppressed` code | No |
+| `EmailAlreadyExistsError` | 400 with the `email_already_exists` code. Only with `collision_behavior: nil` | No |
+| `SubscriberBlockedError` | 400 with the `subscriber_blocked` code — Buttondown's firewall rejected the address | No |
 | `BadRequestError` | A validation failure. Read `#code` and `#body` | No |
 | `AuthenticationError` | 401 | No |
 | `FeatureDisabledError` | 403 with the `feature_disabled` code | No |
@@ -94,6 +96,11 @@ rescue Buttondown::APIError => e
   report(status: e.status, code: e.code, body: e.body)
 end
 ```
+
+Error messages can contain the subscriber's email address. Buttondown quotes it
+back in `detail` for codes like `email_already_exists`, and the gem passes that
+message through rather than rewriting it. If addresses shouldn't reach your
+error tracker, report the structured fields as above and scrub at that boundary.
 
 Connection failures are wrapped, but the original exception is preserved as
 `#cause` if you need it.
