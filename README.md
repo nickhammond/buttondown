@@ -29,17 +29,27 @@ subscriber.regular? # => true
 
 ### Options
 
-`subscribe` sends two defaults, both overridable per call:
+Two keywords have defaults, so the call above is the same as writing:
 
 ```ruby
-# type: "regular" by default. Pass nil to send no type at all.
-client.subscribe(email, type: nil)
-
-# collision_behavior: "add" by default, sent as the
-# X-Buttondown-Collision-Behavior header. Pass nil to omit the header.
-client.subscribe(email, collision_behavior: "overwrite")
-client.subscribe(email, collision_behavior: nil)
+client.subscribe(email, type: "regular", collision_behavior: "add")
 ```
+
+`type:` is the state the subscriber starts in.
+
+| Value | Effect |
+|---|---|
+| `"regular"` (default) | Subscribed immediately, skipping Buttondown's double opt-in |
+| `nil` | Sends no type, so Buttondown's own default applies: `"unactivated"` until they confirm by email |
+
+`collision_behavior:` decides what happens when the address is already a
+subscriber. It travels as the `X-Buttondown-Collision-Behavior` header.
+
+| Value | Effect |
+|---|---|
+| `"add"` (default) | Merges into the existing subscriber and returns it, so a duplicate is a success |
+| `"overwrite"` | Replaces the existing data. A terminal subscriber raises `SubscriberSuppressedError` |
+| `nil` | Omits the header, so a duplicate raises `EmailAlreadyExistsError` — the only way to detect "already subscribed" |
 
 What Buttondown does with those values — opt-in states, how collisions resolve,
 rate limits — is documented at [docs.buttondown.com](https://docs.buttondown.com).
