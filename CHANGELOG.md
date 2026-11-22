@@ -6,15 +6,12 @@ hierarchy is listed.
 
 ## Unreleased
 
-- Added `Buttondown::EmailAlreadyExistsError` and
-  `Buttondown::SubscriberBlockedError`, both subclasses of
-  `Buttondown::BadRequestError`, mapped from the `email_already_exists` and
-  `subscriber_blocked` codes. Previously both surfaced as plain
-  `BadRequestError`; existing rescues keep working.
+Nothing yet.
 
-## 0.1.0 - 2026-11-21
+## 0.1.1 - 2026-11-22
 
-Initial release.
+Initial release. No 0.1.0 was ever published; the version was bumped before the
+first push to RubyGems.
 
 - `Buttondown::Client#subscribe`, covering `POST /v1/subscribers`
 - Token from the constructor, defaulting to `ENV["BUTTONDOWN_API_KEY"]`; a blank
@@ -24,5 +21,7 @@ Initial release.
 - `collision_behavior:` defaults to `"add"`, merging a duplicate instead of
   failing. Pass `nil` to make a duplicate raise
 - Returns a `Buttondown::Subscriber`
-- Full error hierarchy under `Buttondown::Error`
+- Full error hierarchy under `Buttondown::Error`, including
+  `EmailAlreadyExistsError` and `SubscriberBlockedError`, mapped from the
+  `email_already_exists` and `subscriber_blocked` codes
 - No runtime dependencies; Net::HTTP from stdlib
