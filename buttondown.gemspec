@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.email = ["nick@shipyrd.io"]
 
   spec.summary = "Ruby client for the Buttondown newsletter API"
-  spec.description = "A dependency-free Ruby client for the Buttondown newsletter API."
+  spec.description = "A Ruby client for the Buttondown newsletter API."
   spec.homepage = "https://github.com/nickhammond/buttondown"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.3.0"
