@@ -30,10 +30,8 @@ module Buttondown
     end
   end
 
-  # Buttondown answered with a non-2xx status.
-  #
-  # Exposes the response as plain data (`headers`, `raw_body`) rather than the
-  # Net::HTTPResponse itself, so swapping the HTTP backend stays a patch release.
+  # Exposes the response as plain data rather than the Net::HTTPResponse itself,
+  # so swapping the HTTP backend stays a patch release.
   class APIError < Error
     attr_reader :status, :code, :body, :raw_body, :headers
 
@@ -55,14 +53,13 @@ module Buttondown
 
   class SubscriberSuppressedError < BadRequestError; end
 
-  # The address is already a subscriber. Only reachable with
-  # `collision_behavior: nil` -- "add" and "overwrite" merge instead of
-  # failing, so they never raise this.
+  # Only reachable with `collision_behavior: nil`: "add" and "overwrite" merge
+  # instead of failing.
   class EmailAlreadyExistsError < BadRequestError; end
 
-  # Buttondown's firewall rejected the address before creating anything:
-  # a reserved domain such as example.com, a disposable provider, or too high
-  # a risk score. Retrying the same address will fail the same way.
+  # Buttondown's firewall rejected the address -- a reserved domain such as
+  # example.com, a disposable provider, or too high a risk score. Retrying the
+  # same address fails the same way.
   class SubscriberBlockedError < BadRequestError; end
 
   class AuthenticationError < APIError; end
@@ -73,9 +70,8 @@ module Buttondown
 
   class NotFoundError < APIError; end
 
-  # Documented on every subscriber endpoint. It means the request collided
-  # with concurrent work on the same record, so unlike the other 4xx errors
-  # here the same call may succeed on a retry.
+  # The request collided with concurrent work on the same record, so unlike the
+  # other 4xx errors here it may succeed on a retry.
   class ConflictError < APIError; end
 
   class UnprocessableEntityError < APIError; end

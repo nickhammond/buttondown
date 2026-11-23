@@ -25,7 +25,6 @@ module Buttondown
       @attributes["type"]
     end
 
-    # True when this subscriber will actually receive emails.
     def regular?
       type == "regular"
     end

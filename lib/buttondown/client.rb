@@ -4,16 +4,14 @@ module Buttondown
   class Client
     BASE_URL = "https://api.buttondown.com/v1"
 
-    # Pins the API version. Unpinned requests use whatever version is set on the
-    # account's settings page, which can change under you.
+    # Unpinned requests use whatever the account's settings page says, which can
+    # change under you.
     API_VERSION = "2026-04-01"
 
-    # "regular" opts the subscriber in directly, skipping Buttondown's double
-    # opt-in for this subscriber.
+    # Skips Buttondown's double opt-in for this subscriber.
     DEFAULT_TYPE = "regular"
 
-    # "add" merges a repeat subscribe into the existing subscriber instead of
-    # returning a 400.
+    # Merges a repeat subscribe into the existing subscriber instead of failing.
     DEFAULT_COLLISION_BEHAVIOR = "add"
 
     OPEN_TIMEOUT = 5
@@ -68,74 +66,44 @@ module Buttondown
       @write_timeout = write_timeout
     end
 
-    # Creates a subscriber. Returns a Buttondown::Subscriber.
+    # Creates a subscriber. Further attributes -- ip_address, tags, metadata and
+    # the rest -- are passed through for the API to validate. See the README.
     #
-    #   type:               "regular" (default) skips Buttondown's double opt-in
-    #                       for this subscriber. Pass nil to let Buttondown apply
-    #                       its own default, leaving them "unactivated" until
-    #                       they confirm by email.
-    #   collision_behavior: "add" (default) merges into an existing subscriber
-    #                       instead of failing. "overwrite" replaces. nil omits
-    #                       the header, so a duplicate raises BadRequestError --
-    #                       the only way to detect "already subscribed".
-    #
-    # Because "add" turns a duplicate into a success returning the pre-existing
-    # record, a successful call does NOT mean this person will receive email.
-    # Check Subscriber#regular?.
-    def subscribe(email, type: DEFAULT_TYPE, collision_behavior: DEFAULT_COLLISION_BEHAVIOR)
-      payload = {email_address: normalize_email(email)}
+    # With the default collision_behavior "add" a duplicate is a success that
+    # returns the existing record, so this returning does not mean the person
+    # will receive email. Check Subscriber#regular?.
+    def subscribe(email, type: DEFAULT_TYPE, **attributes)
+      # Routed to a header rather than the body, so the caller need not know
+      # which is which. fetch, not delete-or-default: an explicit nil means
+      # "omit the header" and has to survive.
+      collision_behavior = attributes.fetch(:collision_behavior, DEFAULT_COLLISION_BEHAVIOR)
+
+      payload = attributes.except(:collision_behavior).merge(email_address: normalize_email(email))
       payload[:type] = type if type
 
       Subscriber.new(request(:post, "/subscribers", payload: payload, collision_behavior: collision_behavior))
     end
 
-    # Retrieves a subscriber. Returns a Buttondown::Subscriber, or raises
-    # NotFoundError when no such subscriber exists.
-    #
-    # Buttondown's path is /subscribers/{id_or_email}, so either identifies a
-    # subscriber and there is no need to store the id:
-    #
-    #   client.subscriber("sub_0dys87p9a08v1ttfy6ascstnpx")
-    #   client.subscriber("reader@example.com")
+    # Retrieves a subscriber by id or email address -- Buttondown's path is
+    # /subscribers/{id_or_email}, so either works.
     def subscriber(id_or_email)
       Subscriber.new(request(:get, "/subscribers/#{path_segment(id_or_email)}"))
     end
 
-    # Updates a subscriber, by Buttondown id or email address, and returns the
-    # updated Buttondown::Subscriber.
+    # Updates a subscriber by id or email address. Only the attributes given are
+    # touched, and they are passed through for the API to validate.
     #
-    # Buttondown accepts type, email_address, tags, notes, metadata,
-    # referrer_url, commenting_disabled, unsubscription_reason and
-    # email_which_prompted_unsubscription_id. Attributes are passed through
-    # rather than checked against that list, so the API rejects an unknown one
-    # with a 422 and a new field needs no gem release.
-    #
-    # Only the attributes given are touched; the rest of the record is left
-    # alone. Note that this bypasses the suppression rules: setting type back
-    # to "regular" reactivates an unsubscribed subscriber without the
-    # SubscriberSuppressedError that a subscribe with collision_behavior
-    # "overwrite" would raise. The subscribe defaults, "regular" plus "add",
-    # reactivate them without raising either -- no call here protects an
-    # existing opt-out on its own.
+    # This bypasses the suppression rules: setting type back to "regular"
+    # reactivates an unsubscribed subscriber with no error at all.
     def update_subscriber(id_or_email, **attributes)
       raise InvalidArgumentError, "No attributes to update" if attributes.empty?
 
       Subscriber.new(request(:patch, "/subscribers/#{path_segment(id_or_email)}", payload: attributes))
     end
 
-    # Unsubscribes a subscriber. `reason:` is free text stored as
-    # unsubscription_reason. Returns the updated Buttondown::Subscriber.
-    #
-    # Buttondown has no unsubscribe endpoint -- this is an update setting the
-    # type -- but it is the action worth naming, and the one to reach for when
-    # someone asks to stop receiving email. The record survives, so Buttondown
-    # remembers the opt-out: a later subscribe with collision_behavior
-    # "overwrite" raises SubscriberSuppressedError.
-    #
-    # Note that the subscribe defaults -- type "regular", collision "add" --
-    # DO reactivate an unsubscribed subscriber, and Subscriber#regular? then
-    # reports true because of it. Check terminal? before subscribing, or pass
-    # collision_behavior: "overwrite".
+    # Unsubscribes a subscriber. Buttondown has no unsubscribe endpoint: this is
+    # an update setting the type, named for the action worth having. Keeping the
+    # record is what makes the opt-out stick -- see the README.
     def unsubscribe(id_or_email, reason: nil)
       attributes = {type: "unsubscribed"}
       attributes[:unsubscription_reason] = reason if reason
@@ -150,12 +118,8 @@ module Buttondown
 
     private
 
-    # The one path every public method takes: build the request, send it, and
-    # return the parsed body Hash. A response with no body, such as a 204,
-    # arrives here as an empty Hash.
-    #
-    # The URL is interpolated rather than joined -- URI.join would replace
-    # "/v1" and silently drop the version prefix.
+    # Interpolated rather than joined: URI.join would replace "/v1" and silently
+    # drop the version prefix.
     def request(verb, path, payload: nil, collision_behavior: nil)
       uri = URI("#{BASE_URL}#{path}")
       headers = request_headers(collision_behavior: collision_behavior)
@@ -185,12 +149,10 @@ module Buttondown
       http
     end
 
-    # Sends the request and returns the parsed body, or raises.
-    #
-    # Rescues an explicit list rather than bare `rescue`, so a bug in this gem
-    # surfaces as itself instead of being reported as a connection failure.
-    # Classifying the response is inside the rescues but raises only APIError
-    # and InvalidResponseError, neither of which they catch.
+    # An explicit rescue list rather than bare `rescue`, so a bug in this gem
+    # surfaces as itself instead of as a connection failure. Classifying the
+    # response sits inside the rescues but raises only APIError and
+    # InvalidResponseError, neither of which they catch.
     def perform(http, http_request)
       response = http.request(http_request)
 
@@ -250,8 +212,6 @@ module Buttondown
       )
     end
 
-    # Buttondown's own wording wherever it gives any, falling back to the
-    # status line.
     def error_message(parsed, response)
       parsed["detail"] || parsed["error"] || parsed["message"] || response.message
     end
@@ -267,17 +227,9 @@ module Buttondown
       nil
     end
 
-    # Stands in for the Rails-flavored blank check the extracted code used, and
-    # guards a 100/day rate limit against addresses no mail server would accept.
-    #
-    # This message omits the address, but that is a local courtesy rather than a
-    # gem-wide guarantee: Buttondown quotes the address back in its own error
-    # `detail` (see `email_already_exists`) and APIError#to_s passes that
-    # through unchanged. Scrub at the error-tracker boundary if messages must
-    # be address-free.
-    # An id or an email address goes in a path segment. "@" and "+" are legal
-    # there and Buttondown accepts them raw, but encoding is equally accepted
-    # and stops a stray "/" or "?" from rewriting the request path.
+    # Guards a 100/day rate limit against addresses no mail server would accept.
+    # "@" and "+" are legal in a path segment and Buttondown accepts them raw,
+    # but encoding is accepted too and stops a stray "/" rewriting the path.
     def path_segment(value)
       segment = value.to_s.strip
 
