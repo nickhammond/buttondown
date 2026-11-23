@@ -101,6 +101,45 @@ module Buttondown
       Subscriber.new(request(:get, "/subscribers/#{path_segment(id_or_email)}"))
     end
 
+    # Updates a subscriber, by Buttondown id or email address, and returns the
+    # updated Buttondown::Subscriber.
+    #
+    # Buttondown accepts type, email_address, tags, notes, metadata,
+    # referrer_url, commenting_disabled, unsubscription_reason and
+    # email_which_prompted_unsubscription_id. Attributes are passed through
+    # rather than checked against that list, so the API rejects an unknown one
+    # with a 422 and a new field needs no gem release.
+    #
+    # Only the attributes given are touched; the rest of the record is left
+    # alone. Note that this bypasses the suppression rules subscribe obeys:
+    # setting type back to "regular" reactivates an unsubscribed subscriber
+    # without the SubscriberSuppressedError a subscribe would raise.
+    def update_subscriber(id_or_email, **attributes)
+      raise InvalidArgumentError, "No attributes to update" if attributes.empty?
+
+      Subscriber.new(request(:patch, "/subscribers/#{path_segment(id_or_email)}", payload: attributes))
+    end
+
+    # Unsubscribes a subscriber. `reason:` is free text stored as
+    # unsubscription_reason. Returns the updated Buttondown::Subscriber.
+    #
+    # Buttondown has no unsubscribe endpoint -- this is an update setting the
+    # type -- but it is the action worth naming, and the one to reach for when
+    # someone asks to stop receiving email. The record survives, so Buttondown
+    # remembers the opt-out: a later subscribe with collision_behavior
+    # "overwrite" raises SubscriberSuppressedError.
+    #
+    # Note that the subscribe defaults -- type "regular", collision "add" --
+    # DO reactivate an unsubscribed subscriber, and Subscriber#regular? then
+    # reports true because of it. Check terminal? before subscribing, or pass
+    # collision_behavior: "overwrite".
+    def unsubscribe(id_or_email, reason: nil)
+      attributes = {type: "unsubscribed"}
+      attributes[:unsubscription_reason] = reason if reason
+
+      update_subscriber(id_or_email, **attributes)
+    end
+
     # Keeps the token out of logs, error-tracker breadcrumbs and binding.irb.
     def inspect
       "#<#{self.class.name} api_version=#{api_version.inspect} token=[FILTERED]>"
@@ -118,16 +157,19 @@ module Buttondown
       uri = URI("#{BASE_URL}#{path}")
       headers = request_headers(collision_behavior: collision_behavior)
 
-      http_request =
-        case verb
-        when :get then Net::HTTP::Get.new(uri.request_uri, headers)
-        when :post then Net::HTTP::Post.new(uri.request_uri, headers)
-        else raise ArgumentError, "Unsupported HTTP verb #{verb.inspect}"
-        end
-
+      http_request = http_class(verb).new(uri.request_uri, headers)
       http_request.body = JSON.generate(payload) if payload
 
       perform(build_http(uri), http_request)
+    end
+
+    def http_class(verb)
+      case verb
+      when :get then Net::HTTP::Get
+      when :post then Net::HTTP::Post
+      when :patch then Net::HTTP::Patch
+      else raise ArgumentError, "Unsupported HTTP verb #{verb.inspect}"
+      end
     end
 
     def build_http(uri)

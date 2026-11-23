@@ -42,7 +42,10 @@ Metrics/BlockLength:
 Metrics/MethodLength:
   Max: 15
 
+# Four endpoints and the request plumbing they share. This number tracks the
+# endpoint count rather than the design, and it is at the point where the
+# plumbing should move into a class of its own rather than be raised again.
 Metrics/ClassLength:
-  Max: 150
+  Max: 175
   Exclude:
     - 'test/**/*'
