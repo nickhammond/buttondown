@@ -89,6 +89,18 @@ module Buttondown
       Subscriber.new(post("/subscribers", payload, collision_behavior: collision_behavior))
     end
 
+    # Retrieves a subscriber. Returns a Buttondown::Subscriber, or raises
+    # NotFoundError when no such subscriber exists.
+    #
+    # Buttondown's path is /subscribers/{id_or_email}, so either identifies a
+    # subscriber and there is no need to store the id:
+    #
+    #   client.subscriber("sub_0dys87p9a08v1ttfy6ascstnpx")
+    #   client.subscriber("reader@example.com")
+    def subscriber(id_or_email)
+      Subscriber.new(get("/subscribers/#{path_segment(id_or_email)}"))
+    end
+
     # Keeps the token out of logs, error-tracker breadcrumbs and binding.irb.
     def inspect
       "#<#{self.class.name} api_version=#{api_version.inspect} token=[FILTERED]>"
@@ -96,15 +108,27 @@ module Buttondown
 
     private
 
-    def post(path, payload, collision_behavior: nil)
-      # Interpolated, not URI.join -- join would replace "/v1" and silently drop
-      # the version prefix.
-      uri = URI("#{BASE_URL}#{path}")
+    def get(path)
+      uri = build_uri(path)
 
-      request = Net::HTTP::Post.new(uri.request_uri, request_headers(collision_behavior))
+      handle(perform(build_http(uri), Net::HTTP::Get.new(uri.request_uri, request_headers)))
+    end
+
+    def post(path, payload, collision_behavior: nil)
+      uri = build_uri(path)
+
+      headers = request_headers(collision_behavior: collision_behavior)
+        .merge("Content-Type" => "application/json")
+      request = Net::HTTP::Post.new(uri.request_uri, headers)
       request.body = JSON.generate(payload)
 
       handle(perform(build_http(uri), request))
+    end
+
+    # Interpolated, not URI.join -- join would replace "/v1" and silently drop
+    # the version prefix.
+    def build_uri(path)
+      URI("#{BASE_URL}#{path}")
     end
 
     def build_http(uri)
@@ -127,10 +151,9 @@ module Buttondown
       raise ConnectionError, "Couldn't reach Buttondown: #{e.class}: #{e.message}"
     end
 
-    def request_headers(collision_behavior)
+    def request_headers(collision_behavior: nil)
       headers = {
         "Authorization" => "Token #{token}",
-        "Content-Type" => "application/json",
         "Accept" => "application/json",
         "User-Agent" => USER_AGENT,
         "X-API-Version" => api_version
@@ -198,6 +221,17 @@ module Buttondown
     # `detail` (see `email_already_exists`) and APIError#to_s passes that
     # through unchanged. Scrub at the error-tracker boundary if messages must
     # be address-free.
+    # An id or an email address goes in a path segment. "@" and "+" are legal
+    # there and Buttondown accepts them raw, but encoding is equally accepted
+    # and stops a stray "/" or "?" from rewriting the request path.
+    def path_segment(value)
+      segment = value.to_s.strip
+
+      raise InvalidArgumentError, "Subscriber id or email address can't be blank" if segment.empty?
+
+      URI.encode_uri_component(segment)
+    end
+
     def normalize_email(email)
       value = email.to_s.strip
 
