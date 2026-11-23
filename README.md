@@ -68,6 +68,36 @@ client.subscriber("reader@example.com")
 It returns a `Buttondown::Subscriber`, and raises `NotFoundError` when nobody
 matches. A blank argument raises `InvalidArgumentError` before any request.
 
+### Unsubscribing
+
+`unsubscribe` sets the subscriber's type to `unsubscribed` and returns the
+updated subscriber:
+
+```ruby
+client.unsubscribe("reader@example.com")
+client.unsubscribe("reader@example.com", reason: "too many emails")
+```
+
+`reason:` is free text stored as `unsubscription_reason`. Calling it twice is
+harmless. It raises `NotFoundError` when nobody matches.
+
+Prefer this to `delete_subscriber` for anyone who asked to stop receiving
+email. The record survives, so Buttondown remembers the opt-out:
+
+```ruby
+client.unsubscribe("reader@example.com")
+client.subscribe("reader@example.com", collision_behavior: "overwrite")
+# => raises Buttondown::SubscriberSuppressedError
+```
+
+Deleting leaves no such trace, so subscribing the same address afterwards
+creates a fresh `regular` subscriber with no error at all.
+
+One sharp edge: the `subscribe` defaults — `type: "regular"` with
+`collision_behavior: "add"` — **do** reactivate an unsubscribed subscriber.
+Check `terminal?` first, or pass `collision_behavior: "overwrite"` and rescue
+`SubscriberSuppressedError`.
+
 ### Deleting a subscriber
 
 `delete_subscriber` takes an id or an address as well:
@@ -133,6 +163,7 @@ enough to be safe. Rescue the specific classes where you want to act differently
 | `FeatureDisabledError` | 403 with the `feature_disabled` code | No |
 | `ForbiddenError` | Any other 403 | No |
 | `NotFoundError` | 404 | No |
+| `ConflictError` | 409. The request collided with concurrent work on the record | Yes |
 | `UnprocessableEntityError` | 422 | No |
 | `RateLimitError` | 429. Exposes `#retry_after` when the header is sent | Yes, after a wait |
 | `ServerError` | 5xx | Yes |

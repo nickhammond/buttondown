@@ -112,6 +112,27 @@ module Buttondown
     # of moving the subscriber to the "unsubscribed" type, and Buttondown does
     # NOT cancel a backing Stripe subscription on delete -- set the type to
     # "unsubscribed" first when that matters.
+    # Unsubscribes a subscriber, by Buttondown id or email address, and returns
+    # the updated Buttondown::Subscriber. `reason:` is free text stored as
+    # unsubscription_reason.
+    #
+    # Prefer this to delete_subscriber for anyone who asked to stop receiving
+    # email. The record survives, so Buttondown remembers the opt-out: a later
+    # subscribe with collision_behavior "overwrite" raises
+    # SubscriberSuppressedError instead of quietly reactivating them. A deleted
+    # subscriber leaves no such trace, and subscribing again just creates a
+    # fresh "regular" one.
+    #
+    # Note that the gem's own subscribe defaults -- type "regular", collision
+    # "add" -- DO reactivate an unsubscribed subscriber. Check terminal? first,
+    # or pass collision_behavior: "overwrite".
+    def unsubscribe(id_or_email, reason: nil)
+      payload = {type: "unsubscribed"}
+      payload[:unsubscription_reason] = reason if reason
+
+      Subscriber.new(request(:patch, "/subscribers/#{path_segment(id_or_email)}", payload: payload))
+    end
+
     def delete_subscriber(id_or_email)
       request(:delete, "/subscribers/#{path_segment(id_or_email)}")
 
@@ -135,17 +156,20 @@ module Buttondown
       uri = URI("#{BASE_URL}#{path}")
       headers = request_headers(collision_behavior: collision_behavior)
 
-      http_request =
-        case verb
-        when :get then Net::HTTP::Get.new(uri.request_uri, headers)
-        when :post then Net::HTTP::Post.new(uri.request_uri, headers)
-        when :delete then Net::HTTP::Delete.new(uri.request_uri, headers)
-        else raise ArgumentError, "Unsupported HTTP verb #{verb.inspect}"
-        end
-
+      http_request = http_class(verb).new(uri.request_uri, headers)
       http_request.body = JSON.generate(payload) if payload
 
       perform(build_http(uri), http_request)
+    end
+
+    def http_class(verb)
+      case verb
+      when :get then Net::HTTP::Get
+      when :post then Net::HTTP::Post
+      when :patch then Net::HTTP::Patch
+      when :delete then Net::HTTP::Delete
+      else raise ArgumentError, "Unsupported HTTP verb #{verb.inspect}"
+      end
     end
 
     def build_http(uri)
