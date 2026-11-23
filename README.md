@@ -230,6 +230,9 @@ After checking out the repo, run `bin/setup` to install dependencies, then
 `bin/ci` runs everything CI runs — tests, RuboCop, undercover and
 bundler-audit. `bin/test` runs just the tests.
 
+`AGENTS.md` collects the API behavior that isn't in Buttondown's own docs, and
+points at the OpenAPI spec to check before adding an endpoint.
+
 ## Releasing a new version
 
 Update `CHANGELOG.md`, then from a clean `main`:
