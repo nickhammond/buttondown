@@ -102,8 +102,10 @@ client.unsubscribe("reader@example.com", reason: "too many emails")
 `reason:` is free text stored as `unsubscription_reason`. Calling it twice is
 harmless.
 
-Reach for this, rather than removing the record, when someone asks to stop
-receiving email. Buttondown then remembers the opt-out:
+This is almost always what you want when someone asks to stop receiving
+email. The subscriber keeps their id, their history and their stats — opens,
+clicks, tags, the date and reason they left — and Buttondown remembers the
+opt-out:
 
 ```ruby
 client.unsubscribe("reader@example.com")
@@ -119,6 +121,10 @@ Two sharp edges, both verified against the API:
   `collision_behavior: "overwrite"` and rescue `SubscriberSuppressedError`.
 - `update_subscriber(type: "regular")` reactivates one too, and bypasses
   suppression entirely — no error at all.
+
+Removing a subscriber outright isn't supported. Deleting takes the history and
+the stats with it, and Buttondown then has no record that the person opted
+out, so a later `subscribe` recreates them as `regular` with no error at all.
 
 ### The subscriber
 
