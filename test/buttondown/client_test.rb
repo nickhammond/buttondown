@@ -138,6 +138,71 @@ class TestButtondownClient < Minitest::Test
         assert_requested stub
       end
 
+      it "sends extra attributes in the body" do
+        stub = stub_request(:post, CREATE_URL)
+          .with(body: {
+            ip_address: "203.0.113.4",
+            tags: ["signup-form"],
+            utm_source: "newsletter",
+            email_address: "nick@example.com",
+            type: "regular"
+          }.to_json)
+          .to_return(status: 201, body: subscriber_body)
+
+        client.subscribe("nick@example.com",
+                         ip_address: "203.0.113.4", tags: ["signup-form"], utm_source: "newsletter")
+
+        assert_requested stub
+      end
+
+      # Attributes are not checked against the documented list: the API rejects
+      # an unknown one, so a new field needs no gem release.
+      it "passes an attribute the gem has never heard of straight through" do
+        stub = stub_request(:post, CREATE_URL)
+          .with(body: {some_future_field: "x", email_address: "nick@example.com", type: "regular"}.to_json)
+          .to_return(status: 201, body: subscriber_body)
+
+        client.subscribe("nick@example.com", some_future_field: "x")
+
+        assert_requested stub
+      end
+
+      # collision_behavior arrives as an ordinary attribute so a caller need
+      # not know it is a header, which means it must not also reach the body.
+      it "routes collision_behavior to the header, not the body" do
+        stub = stub_request(:post, CREATE_URL)
+          .with(headers: {"X-Buttondown-Collision-Behavior" => "overwrite"}) do |request|
+            !JSON.parse(request.body).key?("collision_behavior")
+          end
+          .to_return(status: 201, body: subscriber_body)
+
+        client.subscribe("nick@example.com", collision_behavior: "overwrite")
+
+        assert_requested stub
+      end
+
+      it "keeps collision_behavior out of the body when it is nil" do
+        stub = stub_request(:post, CREATE_URL)
+          .with { |request| !JSON.parse(request.body).key?("collision_behavior") }
+          .to_return(status: 201, body: subscriber_body)
+
+        client.subscribe("nick@example.com", collision_behavior: nil)
+
+        assert_requested stub
+      end
+
+      # The positional argument is the address, so it wins: the alternative is
+      # a call that silently subscribes someone other than who it names.
+      it "prefers the positional email over an email_address attribute" do
+        stub = stub_request(:post, CREATE_URL)
+          .with { |request| JSON.parse(request.body)["email_address"] == "nick@example.com" }
+          .to_return(status: 201, body: subscriber_body)
+
+        client.subscribe("nick@example.com", email_address: "someone-else@example.com")
+
+        assert_requested stub
+      end
+
       it "omits the collision header when given nil" do
         stub = stub_request(:post, CREATE_URL)
           .with { |request| !request.headers.key?("X-Buttondown-Collision-Behavior") }

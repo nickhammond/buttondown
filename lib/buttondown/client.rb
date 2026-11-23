@@ -76,14 +76,33 @@ module Buttondown
     #                       they confirm by email.
     #   collision_behavior: "add" (default) merges into an existing subscriber
     #                       instead of failing. "overwrite" replaces. nil omits
-    #                       the header, so a duplicate raises BadRequestError --
-    #                       the only way to detect "already subscribed".
+    #                       the header, so a duplicate raises
+    #                       EmailAlreadyExistsError -- the only way to detect
+    #                       "already subscribed".
+    #
+    # Everything else is sent as given: ip_address, tags, notes, metadata,
+    # referrer_url, referring_subscriber_id and the utm_* fields. Attributes are
+    # not checked against that list, so the API rejects an unknown one with a
+    # 422 and a new field needs no gem release.
+    #
+    #   client.subscribe(email, ip_address: request.remote_ip, tags: ["form"])
+    #
+    # ip_address is worth sending from a web form: Buttondown uses it to locate
+    # the subscriber and to judge whether the signup is legitimate. It and the
+    # utm_* fields can only be set here -- the update endpoint does not accept
+    # them, so a value missed at creation is gone.
     #
     # Because "add" turns a duplicate into a success returning the pre-existing
     # record, a successful call does NOT mean this person will receive email.
     # Check Subscriber#regular?.
-    def subscribe(email, type: DEFAULT_TYPE, collision_behavior: DEFAULT_COLLISION_BEHAVIOR)
-      payload = {email_address: normalize_email(email)}
+    def subscribe(email, type: DEFAULT_TYPE, **attributes)
+      # collision_behavior travels as a header rather than in the body, which is
+      # Buttondown's business and not the caller's: it arrives here as an
+      # ordinary attribute and gets routed. fetch, not delete-or-default,
+      # because an explicit nil means "omit the header" and must survive.
+      collision_behavior = attributes.fetch(:collision_behavior, DEFAULT_COLLISION_BEHAVIOR)
+
+      payload = attributes.except(:collision_behavior).merge(email_address: normalize_email(email))
       payload[:type] = type if type
 
       Subscriber.new(request(:post, "/subscribers", payload: payload, collision_behavior: collision_behavior))

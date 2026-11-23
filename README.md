@@ -36,6 +36,26 @@ Two keywords have defaults, so the call above is the same as writing:
 client.subscribe(email, type: "regular", collision_behavior: "add")
 ```
 
+Anything else Buttondown accepts goes along as given — `ip_address`, `tags`,
+`notes`, `metadata`, `referrer_url`, `referring_subscriber_id` and the `utm_*`
+fields:
+
+```ruby
+client.subscribe(email,
+                 ip_address: request.remote_ip,
+                 referrer_url: request.referer,
+                 tags: ["signup-form"],
+                 utm_source: params[:utm_source])
+```
+
+Attributes aren't checked against that list, so the API rejects an unknown one
+with a 422 and a new field needs no gem release.
+
+`ip_address` is worth sending from a web form: Buttondown uses it to locate the
+subscriber and to judge whether the signup is legitimate. It and the `utm_*`
+fields can **only** be set at creation — the update endpoint doesn't accept
+them, so a value missed here is gone.
+
 `type:` is the state the subscriber starts in.
 
 | Value | Effect |
@@ -44,7 +64,8 @@ client.subscribe(email, type: "regular", collision_behavior: "add")
 | `nil` | Sends no type, so Buttondown's own default applies: `"unactivated"` until they confirm by email |
 
 `collision_behavior:` decides what happens when the address is already a
-subscriber. It travels as the `X-Buttondown-Collision-Behavior` header.
+subscriber. Pass it like any other attribute; the gem sends it as a header
+rather than a field, which is Buttondown's business and not yours.
 
 | Value | Effect |
 |---|---|

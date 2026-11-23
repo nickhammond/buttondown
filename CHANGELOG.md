@@ -6,7 +6,14 @@ hierarchy is listed.
 
 ## Unreleased
 
-Nothing yet.
+- `Buttondown::Client#subscribe` now passes any further attributes to the API:
+  `ip_address`, `tags`, `notes`, `metadata`, `referrer_url`,
+  `referring_subscriber_id` and the `utm_*` fields. `ip_address` and the
+  `utm_*` fields can only be set at creation, so they were previously
+  unreachable
+- `collision_behavior:` is now one of those attributes rather than its own
+  keyword. Existing calls are unaffected: it still goes out as the
+  `X-Buttondown-Collision-Behavior` header, and never as a field
 
 ## 0.2.0 - 2026-11-23
 
