@@ -519,6 +519,30 @@ class TestButtondownClient < Minitest::Test
         assert_raises(Buttondown::ConnectionError) { client.subscribe("nick@example.com") }
       end
 
+      # Neither of these descends from IOError, so both escaped unwrapped until
+      # 0.3.1 -- past any `retry_on Buttondown::ConnectionError` the README asks
+      # callers to write, and advertising that the gem is built on Net::HTTP.
+      it "wraps a malformed status line" do
+        stub_request(:post, CREATE_URL).to_raise(Net::HTTPBadResponse)
+
+        assert_raises(Buttondown::ConnectionError) { client.subscribe("nick@example.com") }
+      end
+
+      it "wraps a malformed response header" do
+        stub_request(:post, CREATE_URL).to_raise(Net::HTTPHeaderSyntaxError)
+
+        assert_raises(Buttondown::ConnectionError) { client.subscribe("nick@example.com") }
+      end
+
+      # Deliberately not rescued: these come from an HTTP status, not the
+      # transport, and Net::ProtocolError was left out of the list to keep them
+      # distinguishable.
+      it "lets an HTTP status exception escape unwrapped" do
+        stub_request(:post, CREATE_URL).to_raise(Net::HTTPFatalError.new("500", nil))
+
+        assert_raises(Net::HTTPFatalError) { client.subscribe("nick@example.com") }
+      end
+
       # The mitigation for wrapping: the original is still reachable for APM and
       # retry middleware that special-cases specific classes.
       it "keeps the original exception as #cause" do

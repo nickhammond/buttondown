@@ -215,7 +215,7 @@ enough to be safe. Rescue the specific classes where you want to act differently
 | `RateLimitError` | 429. Exposes `#retry_after` when the header is sent | Yes, after a wait |
 | `ServerError` | 5xx | Yes |
 | `TimeoutError` | Connect, read or write timed out | Yes |
-| `ConnectionError` | DNS, TLS or socket failure | Yes |
+| `ConnectionError` | DNS, TLS, socket or malformed-response failure | Yes |
 | `InvalidResponseError` | A 2xx whose body wasn't usable JSON | Yes |
 
 Every HTTP error carries `#status`, `#code`, `#body`, `#raw_body` and `#headers`:
