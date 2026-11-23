@@ -118,8 +118,7 @@ class TestButtondownClient < Minitest::Test
               "Authorization" => "Token secret",
               "Content-Type" => "application/json",
               "Accept" => "application/json",
-              "X-API-Version" => "2026-04-01",
-              "X-Buttondown-Collision-Behavior" => "add"
+              "X-API-Version" => "2026-04-01"
             }
           ).to_return(status: 201, body: subscriber_body)
 
@@ -203,7 +202,19 @@ class TestButtondownClient < Minitest::Test
         assert_requested stub
       end
 
-      it "omits the collision header when given nil" do
+      # No header at all, so Buttondown's documented no_op applies: a repeat
+      # address fails instead of merging. The gem used to force "add" here.
+      it "sends no collision header unless one is asked for" do
+        stub = stub_request(:post, CREATE_URL)
+          .with { |request| !request.headers.key?("X-Buttondown-Collision-Behavior") }
+          .to_return(status: 201, body: subscriber_body)
+
+        client.subscribe("nick@example.com")
+
+        assert_requested stub
+      end
+
+      it "treats an explicit nil the same way" do
         stub = stub_request(:post, CREATE_URL)
           .with { |request| !request.headers.key?("X-Buttondown-Collision-Behavior") }
           .to_return(status: 201, body: subscriber_body)
@@ -271,7 +282,7 @@ class TestButtondownClient < Minitest::Test
       it "returns the pre-existing record when a duplicate merges" do
         stub_create(status: 200, body: subscriber_body(type: "unsubscribed"))
 
-        s = client.subscribe("nick@example.com")
+        s = client.subscribe("nick@example.com", collision_behavior: "add")
 
         refute s.regular?
         assert s.terminal?
@@ -334,15 +345,16 @@ class TestButtondownClient < Minitest::Test
         assert_equal "This subscriber is suppressed", error.body["detail"]
       end
 
-      # Code and status confirmed against the live API on 2026-11-21.
-      it "maps a duplicate to EmailAlreadyExistsError when the collision header is omitted" do
+      # Code and status confirmed against the live API on 2026-11-21. Reachable
+      # from a plain subscribe now that the gem sends no collision header.
+      it "maps a duplicate to EmailAlreadyExistsError" do
         stub_create(
           status: [400, "Bad Request"],
           body: {code: "email_already_exists", detail: "That email address is already subscribed"}.to_json
         )
 
         error = assert_raises(Buttondown::EmailAlreadyExistsError) do
-          client.subscribe("nick@example.com", collision_behavior: nil)
+          client.subscribe("nick@example.com")
         end
 
         assert_kind_of Buttondown::BadRequestError, error

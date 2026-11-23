@@ -52,7 +52,9 @@ Things verified against the live API, each of which cost a round trip:
 - **The whole API has three header parameters**:
   `X-Buttondown-Collision-Behavior` (on `/subscribers` and `/tags`) and
   `X-Buttondown-Bypass-Firewall`. Don't generalise `collision_behavior:` into a
-  headers hash for a third header that doesn't exist.
+  headers hash for a third header that doesn't exist. The collision header's
+  documented default when absent is `no_op`, which is what the gem relies on:
+  it sets no default of its own so Buttondown's stands.
 - **`ip_address`, `referring_subscriber_id` and the `utm_*` fields are
   create-only.** `SubscriberUpdateInput` does not accept them, so a value
   missed at creation cannot be backfilled. `ip_address` is the one to care
@@ -72,11 +74,12 @@ Things verified against the live API, each of which cost a round trip:
 Both are real, both are documented in the README, and both will silently mail
 someone who asked you to stop:
 
-- `subscribe`'s defaults (`type: "regular"`, `collision_behavior: "add"`)
-  **reactivate an unsubscribed subscriber**, and `Subscriber#regular?` then
-  reports `true` because of it. So `regular?` is the wrong guard after a
-  subscribe. Check `terminal?` first, or pass `collision_behavior: "overwrite"`
-  and rescue `SubscriberSuppressedError`.
+- `collision_behavior: "add"` **reactivates an unsubscribed subscriber**, and
+  `Subscriber#regular?` then reports `true` because of it. So `regular?` is the
+  wrong guard after a subscribe. Check `terminal?` first, or pass
+  `collision_behavior: "overwrite"` and rescue `SubscriberSuppressedError`.
+  The gem sends no collision header unless asked, so the default path raises
+  `EmailAlreadyExistsError` instead -- safe, but one override away.
 - `update_subscriber(type: "regular")` reactivates one too, bypassing
   suppression entirely — no error at all.
 

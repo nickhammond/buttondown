@@ -6,6 +6,15 @@ hierarchy is listed.
 
 ## Unreleased
 
+- **Breaking:** `#subscribe` no longer sends a collision behavior of its own,
+  so Buttondown's documented default applies: a repeat address raises
+  `Buttondown::EmailAlreadyExistsError` rather than merging into the existing
+  subscriber. Pass `collision_behavior: "add"` to keep the old behavior
+- Removed `Buttondown::Client::DEFAULT_COLLISION_BEHAVIOR`. There is no gem
+  default left to name
+
+## 0.2.1 - 2026-11-23
+
 - `Buttondown::Client#subscribe` now passes any further attributes to the API:
   `ip_address`, `tags`, `notes`, `metadata`, `referrer_url`,
   `referring_subscriber_id` and the `utm_*` fields. `ip_address` and the

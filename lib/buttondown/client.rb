@@ -11,9 +11,6 @@ module Buttondown
     # Skips Buttondown's double opt-in for this subscriber.
     DEFAULT_TYPE = "regular"
 
-    # Merges a repeat subscribe into the existing subscriber instead of failing.
-    DEFAULT_COLLISION_BEHAVIOR = "add"
-
     OPEN_TIMEOUT = 5
     READ_TIMEOUT = 10
     WRITE_TIMEOUT = 10
@@ -69,14 +66,13 @@ module Buttondown
     # Creates a subscriber. Further attributes -- ip_address, tags, metadata and
     # the rest -- are passed through for the API to validate. See the README.
     #
-    # With the default collision_behavior "add" a duplicate is a success that
-    # returns the existing record, so this returning does not mean the person
-    # will receive email. Check Subscriber#regular?.
+    # collision_behavior is sent only when asked for, so Buttondown's own
+    # default stands: a repeat address fails with EmailAlreadyExistsError
+    # rather than quietly merging into the existing subscriber.
     def subscribe(email, type: DEFAULT_TYPE, **attributes)
       # Routed to a header rather than the body, so the caller need not know
-      # which is which. fetch, not delete-or-default: an explicit nil means
-      # "omit the header" and has to survive.
-      collision_behavior = attributes.fetch(:collision_behavior, DEFAULT_COLLISION_BEHAVIOR)
+      # which is which.
+      collision_behavior = attributes[:collision_behavior]
 
       payload = attributes.except(:collision_behavior).merge(email_address: normalize_email(email))
       payload[:type] = type if type
