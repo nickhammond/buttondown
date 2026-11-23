@@ -53,6 +53,13 @@ Things verified against the live API, each of which cost a round trip:
   `X-Buttondown-Collision-Behavior` (on `/subscribers` and `/tags`) and
   `X-Buttondown-Bypass-Firewall`. Don't generalise `collision_behavior:` into a
   headers hash for a third header that doesn't exist.
+- **`ip_address`, `referring_subscriber_id` and the `utm_*` fields are
+  create-only.** `SubscriberUpdateInput` does not accept them, so a value
+  missed at creation cannot be backfilled. `ip_address` is the one to care
+  about: Buttondown uses it for location and to judge whether a signup is
+  legitimate. A malformed one is refused with 422 `invalid_input`
+  (`ip_any_address`), and `country` comes back nil on the create response
+  because location resolves asynchronously.
 - **An `unactivated` subscriber cannot be unsubscribed.** `PATCH` with
   `type: "unsubscribed"` returns 400 `subscriber_type_invalid` and directs you
   to delete the record instead -- which this gem can't do. Unsubscribing an
@@ -154,12 +161,22 @@ it anywhere but Buttondown).
 
 ## Conventions
 
+- **The client routes, the caller doesn't.** A caller passes attributes and the
+  client decides what Buttondown wants in a header rather than the body --
+  `collision_behavior` is an ordinary attribute to `subscribe` and becomes
+  `X-Buttondown-Collision-Behavior`. Nothing above the request plumbing names
+  Net::HTTP or a header.
 - **The error hierarchy is public API** — callers rescue by name, so every
   change to it goes in the CHANGELOG. Codes are checked before statuses,
   because a code is more specific than the status carrying it.
-- **Comments explain why, not what.** `Style/Documentation` is off because a
-  cop demanding one above every class produces filler. The comments that exist
-  earn their place; the ones recording a live-API finding are load-bearing.
+- **Keep comments few.** They explain why, not what, and the bar is "a reader
+  cannot get this from the code or the README". Usage belongs in the README;
+  repeating it above a method means two copies to keep true, and the method
+  comments were cut back once already for exactly that. A comment that stops
+  someone unpicking a deliberate choice is worth keeping -- why the timeout
+  constants are rescued in that order, why the URL is interpolated rather than
+  joined. `Style/Documentation` is off because a cop demanding one above every
+  class produces filler.
 - **Don't let a comment outlive its truth.** Two have already had to be walked
   back: one promised the gem keeps addresses out of error messages (it passes
   Buttondown's `detail` through verbatim), another described an `inspect`
