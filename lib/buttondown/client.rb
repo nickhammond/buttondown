@@ -101,6 +101,23 @@ module Buttondown
       Subscriber.new(request(:get, "/subscribers/#{path_segment(id_or_email)}"))
     end
 
+    # Permanently deletes a subscriber, by Buttondown id or email address.
+    #
+    # Returns nil. There is nothing to report on success -- Buttondown answers
+    # 204 with no body -- and failure raises, so there is no false to check:
+    # NotFoundError when no subscriber matches, which means a second delete
+    # raises rather than quietly succeeding.
+    #
+    # This is not unsubscribing. It removes the record and its history instead
+    # of moving the subscriber to the "unsubscribed" type, and Buttondown does
+    # NOT cancel a backing Stripe subscription on delete -- set the type to
+    # "unsubscribed" first when that matters.
+    def delete_subscriber(id_or_email)
+      request(:delete, "/subscribers/#{path_segment(id_or_email)}")
+
+      nil
+    end
+
     # Keeps the token out of logs, error-tracker breadcrumbs and binding.irb.
     def inspect
       "#<#{self.class.name} api_version=#{api_version.inspect} token=[FILTERED]>"
@@ -122,6 +139,7 @@ module Buttondown
         case verb
         when :get then Net::HTTP::Get.new(uri.request_uri, headers)
         when :post then Net::HTTP::Post.new(uri.request_uri, headers)
+        when :delete then Net::HTTP::Delete.new(uri.request_uri, headers)
         else raise ArgumentError, "Unsupported HTTP verb #{verb.inspect}"
         end
 

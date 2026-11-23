@@ -28,6 +28,11 @@ class TestButtondownClient < Minitest::Test
         .to_return(status: status, body: body || subscriber_body)
     end
 
+    def stub_delete(segment, status: 204, body: "")
+      stub_request(:delete, "#{CREATE_URL}/#{segment}")
+        .to_return(status: status, body: body)
+    end
+
     describe "construction" do
       it "takes a token" do
         assert_equal "secret", client.token
@@ -581,6 +586,54 @@ class TestButtondownClient < Minitest::Test
         end
 
         assert_not_requested :get, /api\.buttondown\.com/
+      end
+    end
+
+    describe "#delete_subscriber" do
+      # 204 with an empty body, confirmed against the live API on 2026-11-22.
+      # Returns nil rather than true: failure raises, so there is no false.
+      it "deletes by id" do
+        stub = stub_delete("sub_123")
+
+        assert_nil client.delete_subscriber("sub_123")
+        assert_requested stub
+      end
+
+      it "deletes by email address" do
+        stub = stub_delete("nick%40example.com")
+
+        client.delete_subscriber("nick@example.com")
+
+        assert_requested stub
+      end
+
+      it "encodes a segment that would otherwise rewrite the path" do
+        stub = stub_delete("..%2F..%2Fnewsletters")
+
+        client.delete_subscriber("../../newsletters")
+
+        assert_requested stub
+        assert_not_requested :delete, "https://api.buttondown.com/v1/newsletters"
+      end
+
+      # Deleting twice raises rather than quietly succeeding: Buttondown 404s
+      # the second call. Confirmed against the live API on 2026-11-22.
+      it "raises NotFoundError when no subscriber matches" do
+        stub_delete("nobody%40example.com", status: 404,
+                                            body: {code: "not_found", detail: "Not found."}.to_json)
+
+        error = assert_raises(Buttondown::NotFoundError) { client.delete_subscriber("nobody@example.com") }
+
+        assert_equal 404, error.status
+        assert_equal "not_found", error.code
+      end
+
+      it "raises without a request when the id is blank" do
+        ["", "   ", nil].each do |blank|
+          assert_raises(Buttondown::InvalidArgumentError) { client.delete_subscriber(blank) }
+        end
+
+        assert_not_requested :delete, /api\.buttondown\.com/
       end
     end
   end

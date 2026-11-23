@@ -68,6 +68,24 @@ client.subscriber("reader@example.com")
 It returns a `Buttondown::Subscriber`, and raises `NotFoundError` when nobody
 matches. A blank argument raises `InvalidArgumentError` before any request.
 
+### Deleting a subscriber
+
+`delete_subscriber` takes an id or an address as well:
+
+```ruby
+client.delete_subscriber("sub_0dys87p9a08v1ttfy6ascstnpx")
+client.delete_subscriber("reader@example.com")
+```
+
+It returns `nil` — Buttondown answers 204 with no body, and failure raises, so
+there is no success flag to check. `NotFoundError` means no subscriber matched,
+which also means deleting twice raises the second time.
+
+This is **not** unsubscribing. It removes the record and its history rather
+than moving the subscriber to the `unsubscribed` type, and Buttondown does not
+cancel a backing Stripe subscription on delete — set the type to
+`unsubscribed` first when that matters.
+
 ### The subscriber
 
 `subscribe` returns a `Buttondown::Subscriber`, a thin read-only view of the
