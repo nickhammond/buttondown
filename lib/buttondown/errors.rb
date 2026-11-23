@@ -53,8 +53,9 @@ module Buttondown
 
   class SubscriberSuppressedError < BadRequestError; end
 
-  # Only reachable with `collision_behavior: nil`: "add" and "overwrite" merge
-  # instead of failing.
+  # What a repeat address does by default. `collision_behavior: "add"` or
+  # "overwrite" merges into the existing subscriber instead, which makes a
+  # duplicate a success.
   class EmailAlreadyExistsError < BadRequestError; end
 
   # Buttondown's firewall rejected the address -- a reserved domain such as

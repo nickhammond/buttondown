@@ -30,11 +30,14 @@ client.subscriber("subscriber@example.com") # or a "sub_..." id
 
 ### Options
 
-Two keywords have defaults, so the call above is the same as writing:
+One keyword has a default, so the call above is the same as writing:
 
 ```ruby
-client.subscribe(email, type: "regular", collision_behavior: "add")
+client.subscribe(email, type: "regular")
 ```
+
+Everything else is sent only if you ask for it, Buttondown's own defaults
+standing in otherwise.
 
 Anything else Buttondown accepts goes along as given — `ip_address`, `tags`,
 `notes`, `metadata`, `referrer_url`, `referring_subscriber_id` and the `utm_*`
@@ -69,9 +72,13 @@ rather than a field, which is Buttondown's business and not yours.
 
 | Value | Effect |
 |---|---|
-| `"add"` (default) | Merges into the existing subscriber and returns it, so a duplicate is a success |
+| unset (default) | Buttondown's `no_op`: a duplicate raises `EmailAlreadyExistsError`, which is how you detect "already subscribed" |
+| `"add"` | Merges into the existing subscriber and returns it, so a duplicate is a success |
 | `"overwrite"` | Replaces the existing data. A terminal subscriber raises `SubscriberSuppressedError` |
-| `nil` | Omits the header, so a duplicate raises `EmailAlreadyExistsError` — the only way to detect "already subscribed" |
+
+Leaving it unset is Buttondown's behavior, not the gem's idea of a good
+default — pick one deliberately. `"add"` is the forgiving choice for a
+signup form, at the cost of silently reactivating someone who unsubscribed.
 
 What Buttondown does with those values — opt-in states, how collisions resolve,
 rate limits — is documented at [docs.buttondown.com](https://docs.buttondown.com).
@@ -142,10 +149,12 @@ client.subscribe("reader@example.com", collision_behavior: "overwrite")
 
 Two sharp edges, both verified against the API:
 
-- The `subscribe` defaults — `type: "regular"` with `collision_behavior: "add"`
-  — **do** reactivate an unsubscribed subscriber, and `regular?` then reports
-  true because of it. Check `terminal?` first, or pass
-  `collision_behavior: "overwrite"` and rescue `SubscriberSuppressedError`.
+- `collision_behavior: "add"` **does** reactivate an unsubscribed subscriber,
+  and `regular?` then reports true because of it. Check `terminal?` first, or
+  pass `collision_behavior: "overwrite"` and rescue
+  `SubscriberSuppressedError`. Sending no collision behavior at all — the
+  default — raises `EmailAlreadyExistsError` instead, which is the safe
+  outcome.
 - `update_subscriber(type: "regular")` reactivates one too, and bypasses
   suppression entirely — no error at all.
 
@@ -167,8 +176,9 @@ subscriber.type          # => "regular"
 subscriber.to_h          # the raw parsed body
 ```
 
-Because a merged duplicate also comes back as a success, returning the
-pre-existing record, check the type before assuming the address is active:
+A merged duplicate also comes back as a success, returning the pre-existing
+record, so with `collision_behavior: "add"` check the type before assuming
+the address is active:
 
 ```ruby
 subscriber.regular?     # will receive email
@@ -193,7 +203,7 @@ enough to be safe. Rescue the specific classes where you want to act differently
 | `ConfigurationError` | No token at construction | No — fix the config |
 | `InvalidEmailError` | Blank or obviously malformed address. **No request is made** | No |
 | `SubscriberSuppressedError` | 400 with the `subscriber_suppressed` code | No |
-| `EmailAlreadyExistsError` | 400 with the `email_already_exists` code. Only with `collision_behavior: nil` | No |
+| `EmailAlreadyExistsError` | 400 with the `email_already_exists` code — the address is already a subscriber | No |
 | `SubscriberBlockedError` | 400 with the `subscriber_blocked` code — Buttondown's firewall rejected the address | No |
 | `BadRequestError` | A validation failure. Read `#code` and `#body` | No |
 | `AuthenticationError` | 401 | No |
@@ -218,7 +228,7 @@ rescue Buttondown::SubscriberSuppressedError
 rescue Buttondown::RateLimitError => e
   retry_in(e.retry_after || 1.hour)
 rescue Buttondown::ConnectionError, Buttondown::ServerError
-  retry_later # the default collision behavior makes this idempotent
+  retry_later # pass collision_behavior: "add" to make this idempotent
 rescue Buttondown::APIError => e
   report(status: e.status, code: e.code, body: e.body)
 end
@@ -231,7 +241,8 @@ In Rails, that makes the retry policy for a job a single line:
 
 ```ruby
 retry_on Buttondown::ConnectionError, Buttondown::ServerError
-discard_on Buttondown::SubscriberSuppressedError, Buttondown::InvalidEmailError
+discard_on Buttondown::SubscriberSuppressedError, Buttondown::InvalidEmailError,
+           Buttondown::EmailAlreadyExistsError
 ```
 
 Email validation before the request is deliberately loose, so the gem is never
