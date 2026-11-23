@@ -30,10 +30,18 @@ module Buttondown
       Net::WriteTimeout
     ].freeze
 
+    # The two Net::HTTP transport failures that aren't IOErrors: a malformed
+    # status line, which is also what a keep-alive socket the server has since
+    # closed looks like, and a malformed header. Net::ProtocolError would cover
+    # both in one line, but its subtree includes HTTPClientException and
+    # HTTPFatalError -- HTTP status errors, which must not reach a caller
+    # disguised as a connection failure.
     CONNECTION_ERRORS = [
       SocketError,
       EOFError,
       IOError,
+      Net::HTTPBadResponse,
+      Net::HTTPHeaderSyntaxError,
       Errno::ECONNREFUSED,
       Errno::ECONNRESET,
       Errno::EHOSTUNREACH,

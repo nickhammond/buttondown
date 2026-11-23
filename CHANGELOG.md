@@ -4,6 +4,14 @@ All notable changes to this gem are documented here. The error classes are part
 of the public API -- callers rescue them by name -- so every change to the error
 hierarchy is listed.
 
+## 0.3.1 - 2026-11-23
+
+- `Net::HTTPBadResponse` and `Net::HTTPHeaderSyntaxError` are now wrapped as
+  `Buttondown::ConnectionError`. Neither descends from `IOError`, so both
+  escaped unwrapped -- past a `retry_on Buttondown::ConnectionError` that the
+  README asks for. `Net::ProtocolError` is deliberately still not rescued: it
+  would also catch HTTP status exceptions
+
 ## 0.3.0 - 2026-11-23
 
 - **Breaking:** `#subscribe` no longer sends a collision behavior of its own,
