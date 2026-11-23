@@ -23,6 +23,11 @@ class TestButtondownClient < Minitest::Test
         .to_return(status: status, body: body || subscriber_body, headers: headers)
     end
 
+    def stub_retrieve(segment, status: 200, body: nil)
+      stub_request(:get, "#{CREATE_URL}/#{segment}")
+        .to_return(status: status, body: body || subscriber_body)
+    end
+
     describe "construction" do
       it "takes a token" do
         assert_equal "secret", client.token
@@ -481,6 +486,101 @@ class TestButtondownClient < Minitest::Test
 
         assert_requested stub
         assert_not_requested :post, "http://api.buttondown.com/v1/subscribers"
+      end
+    end
+
+    # ArgumentError rather than a Buttondown::Error: an unsupported verb is a
+    # bug in this gem, not something a caller can cause.
+    it "refuses an HTTP verb it doesn't know" do
+      error = assert_raises(ArgumentError) { client.send(:request, :put, "/subscribers") }
+
+      assert_match "Unsupported HTTP verb :put", error.message
+      assert_not_requested :put, /api\.buttondown\.com/
+    end
+
+    describe "#subscriber" do
+      it "retrieves by id" do
+        stub = stub_retrieve("sub_123")
+
+        result = client.subscriber("sub_123")
+
+        assert_requested stub
+        assert_kind_of Buttondown::Subscriber, result
+        assert_equal "sub_123", result.id
+        assert_equal "regular", result.type
+      end
+
+      # Buttondown's path is /subscribers/{id_or_email}, so an address needs no
+      # separate lookup. Confirmed against the live API on 2026-11-22.
+      it "retrieves by email address" do
+        stub = stub_retrieve("nick%40example.com", body: subscriber_body)
+
+        assert_equal "sub_123", client.subscriber("nick@example.com").id
+        assert_requested stub
+      end
+
+      # A "+" means a literal plus in a path, but encoding it is what the live
+      # API was verified against, and it keeps the two readings from diverging.
+      it "encodes a plus-addressed email" do
+        stub = stub_retrieve("nick%2Btag%40example.com")
+
+        client.subscriber("nick+tag@example.com")
+
+        assert_requested stub
+      end
+
+      it "encodes a segment that would otherwise rewrite the path" do
+        stub = stub_retrieve("..%2F..%2Fnewsletters")
+
+        client.subscriber("../../newsletters")
+
+        assert_requested stub
+        assert_not_requested :get, "https://api.buttondown.com/v1/newsletters"
+      end
+
+      it "strips surrounding whitespace" do
+        stub = stub_retrieve("sub_123")
+
+        client.subscriber("  sub_123\n")
+
+        assert_requested stub
+      end
+
+      # Content-Type among them: Buttondown accepts it on a bodyless request,
+      # and one header set for every verb beats a conditional one.
+      it "sends the same headers as a create" do
+        stub = stub_request(:get, "#{CREATE_URL}/sub_123")
+          .with(headers: {
+                  "Authorization" => "Token secret",
+                  "Accept" => "application/json",
+                  "Content-Type" => "application/json",
+                  "X-API-Version" => "2026-04-01",
+                  "User-Agent" => "buttondown-rb/#{Buttondown::VERSION}"
+                })
+          .to_return(status: 200, body: subscriber_body)
+
+        client.subscriber("sub_123")
+
+        assert_requested stub
+      end
+
+      # 404 with code "not_found" confirmed against the live API on 2026-11-22.
+      it "raises NotFoundError for a subscriber that doesn't exist" do
+        stub_retrieve("nobody%40example.com", status: 404,
+                                              body: {code: "not_found", detail: "Not found."}.to_json)
+
+        error = assert_raises(Buttondown::NotFoundError) { client.subscriber("nobody@example.com") }
+
+        assert_equal 404, error.status
+        assert_equal "not_found", error.code
+      end
+
+      it "raises without a request when the id is blank" do
+        ["", "   ", nil].each do |blank|
+          assert_raises(Buttondown::InvalidArgumentError) { client.subscriber(blank) }
+        end
+
+        assert_not_requested :get, /api\.buttondown\.com/
       end
     end
   end

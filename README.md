@@ -24,6 +24,8 @@ client = Buttondown::Client.new("your-key") # or pass it explicitly
 
 subscriber = client.subscribe("subscriber@example.com")
 subscriber.regular? # => true
+
+client.subscriber("subscriber@example.com") # or a "sub_..." id
 ```
 
 ### Options
@@ -52,6 +54,19 @@ subscriber. It travels as the `X-Buttondown-Collision-Behavior` header.
 
 What Buttondown does with those values — opt-in states, how collisions resolve,
 rate limits — is documented at [docs.buttondown.com](https://docs.buttondown.com).
+
+### Retrieving a subscriber
+
+`subscriber` takes either a Buttondown id or an email address — the endpoint is
+`/subscribers/{id_or_email}`, so there's no need to store the id:
+
+```ruby
+client.subscriber("sub_0dys87p9a08v1ttfy6ascstnpx")
+client.subscriber("reader@example.com")
+```
+
+It returns a `Buttondown::Subscriber`, and raises `NotFoundError` when nobody
+matches. A blank argument raises `InvalidArgumentError` before any request.
 
 ### The subscriber
 

@@ -6,6 +6,10 @@ hierarchy is listed.
 
 ## Unreleased
 
+- Added `Buttondown::Client#subscriber`, covering
+  `GET /v1/subscribers/{id_or_email}`. Takes a Buttondown id or an email
+  address, returns a `Buttondown::Subscriber`, and raises
+  `Buttondown::NotFoundError` when no subscriber matches
 - Packaging: development files no longer ship in the gem. `.rubocop.yml`,
   `.undercover`, `Gemfile`, `Guardfile`, `Rakefile` and the gemspec itself are
   excluded, leaving `lib/`, `README.md`, `LICENSE.txt` and `CHANGELOG.md`.

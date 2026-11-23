@@ -86,7 +86,19 @@ module Buttondown
       payload = {email_address: normalize_email(email)}
       payload[:type] = type if type
 
-      Subscriber.new(post("/subscribers", payload, collision_behavior: collision_behavior))
+      Subscriber.new(request(:post, "/subscribers", payload: payload, collision_behavior: collision_behavior))
+    end
+
+    # Retrieves a subscriber. Returns a Buttondown::Subscriber, or raises
+    # NotFoundError when no such subscriber exists.
+    #
+    # Buttondown's path is /subscribers/{id_or_email}, so either identifies a
+    # subscriber and there is no need to store the id:
+    #
+    #   client.subscriber("sub_0dys87p9a08v1ttfy6ascstnpx")
+    #   client.subscriber("reader@example.com")
+    def subscriber(id_or_email)
+      Subscriber.new(request(:get, "/subscribers/#{path_segment(id_or_email)}"))
     end
 
     # Keeps the token out of logs, error-tracker breadcrumbs and binding.irb.
@@ -96,15 +108,26 @@ module Buttondown
 
     private
 
-    def post(path, payload, collision_behavior: nil)
-      # Interpolated, not URI.join -- join would replace "/v1" and silently drop
-      # the version prefix.
+    # The one path every public method takes: build the request, send it, and
+    # return the parsed body Hash. A response with no body, such as a 204,
+    # arrives here as an empty Hash.
+    #
+    # The URL is interpolated rather than joined -- URI.join would replace
+    # "/v1" and silently drop the version prefix.
+    def request(verb, path, payload: nil, collision_behavior: nil)
       uri = URI("#{BASE_URL}#{path}")
+      headers = request_headers(collision_behavior: collision_behavior)
 
-      request = Net::HTTP::Post.new(uri.request_uri, request_headers(collision_behavior))
-      request.body = JSON.generate(payload)
+      http_request =
+        case verb
+        when :get then Net::HTTP::Get.new(uri.request_uri, headers)
+        when :post then Net::HTTP::Post.new(uri.request_uri, headers)
+        else raise ArgumentError, "Unsupported HTTP verb #{verb.inspect}"
+        end
 
-      handle(perform(build_http(uri), request))
+      http_request.body = JSON.generate(payload) if payload
+
+      perform(build_http(uri), http_request)
     end
 
     def build_http(uri)
@@ -117,21 +140,29 @@ module Buttondown
       http
     end
 
+    # Sends the request and returns the parsed body, or raises.
+    #
     # Rescues an explicit list rather than bare `rescue`, so a bug in this gem
     # surfaces as itself instead of being reported as a connection failure.
-    def perform(http, request)
-      http.request(request)
+    # Classifying the response is inside the rescues but raises only APIError
+    # and InvalidResponseError, neither of which they catch.
+    def perform(http, http_request)
+      response = http.request(http_request)
+
+      return success_body(response) if response.is_a?(Net::HTTPSuccess)
+
+      raise_api_error(response)
     rescue *TIMEOUT_ERRORS => e
       raise TimeoutError, "Buttondown request timed out: #{e.class}"
     rescue *CONNECTION_ERRORS => e
       raise ConnectionError, "Couldn't reach Buttondown: #{e.class}: #{e.message}"
     end
 
-    def request_headers(collision_behavior)
+    def request_headers(collision_behavior: nil)
       headers = {
         "Authorization" => "Token #{token}",
-        "Content-Type" => "application/json",
         "Accept" => "application/json",
+        "Content-Type" => "application/json",
         "User-Agent" => USER_AGENT,
         "X-API-Version" => api_version
       }
@@ -139,17 +170,10 @@ module Buttondown
       headers
     end
 
-    # Returns the parsed body Hash on success; raises otherwise.
-    def handle(response)
+    def success_body(response)
       status = response.code.to_i
       raw_body = response.body.to_s
 
-      return success_body(status, raw_body) if response.is_a?(Net::HTTPSuccess)
-
-      raise_api_error(response, status, raw_body)
-    end
-
-    def success_body(status, raw_body)
       return {} if raw_body.empty?
 
       parsed = parse_json(raw_body)
@@ -162,21 +186,29 @@ module Buttondown
       )
     end
 
-    def raise_api_error(response, status, raw_body)
+    def raise_api_error(response)
+      status = response.code.to_i
+      raw_body = response.body.to_s
+
       parsed = parse_json(raw_body)
       parsed = {} unless parsed.is_a?(Hash)
 
       code = parsed["code"] || parsed["error_code"]
-      message = parsed["detail"] || parsed["error"] || parsed["message"] || response.message
 
       raise error_class_for(code, status).new(
-        message,
+        error_message(parsed, response),
         status: status,
         code: code,
         body: parsed,
         raw_body: raw_body,
         headers: response.to_hash.transform_values(&:first)
       )
+    end
+
+    # Buttondown's own wording wherever it gives any, falling back to the
+    # status line.
+    def error_message(parsed, response)
+      parsed["detail"] || parsed["error"] || parsed["message"] || response.message
     end
 
     # Code before status: a code is more specific than the status carrying it.
@@ -198,6 +230,17 @@ module Buttondown
     # `detail` (see `email_already_exists`) and APIError#to_s passes that
     # through unchanged. Scrub at the error-tracker boundary if messages must
     # be address-free.
+    # An id or an email address goes in a path segment. "@" and "+" are legal
+    # there and Buttondown accepts them raw, but encoding is equally accepted
+    # and stops a stray "/" or "?" from rewriting the request path.
+    def path_segment(value)
+      segment = value.to_s.strip
+
+      raise InvalidArgumentError, "Subscriber id or email address can't be blank" if segment.empty?
+
+      URI.encode_uri_component(segment)
+    end
+
     def normalize_email(email)
       value = email.to_s.strip
 
