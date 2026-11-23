@@ -68,6 +68,70 @@ client.subscriber("reader@example.com")
 It returns a `Buttondown::Subscriber`, and raises `NotFoundError` when nobody
 matches. A blank argument raises `InvalidArgumentError` before any request.
 
+### Updating a subscriber
+
+`update_subscriber` patches whatever attributes you give it and returns the
+updated subscriber:
+
+```ruby
+client.update_subscriber("reader@example.com", notes: "met at a conference")
+client.update_subscriber("sub_0dys87p9a08v1ttfy6ascstnpx",
+                         metadata: {plan: "pro"}, commenting_disabled: true)
+```
+
+Buttondown accepts `type`, `email_address`, `tags`, `notes`, `metadata`,
+`referrer_url`, `commenting_disabled`, `unsubscription_reason` and
+`email_which_prompted_unsubscription_id`. Attributes are passed through rather
+than checked against that list, so the API rejects an unknown one with a 422
+and a new field needs no gem release.
+
+Only the attributes you pass are touched. Calling it with none raises
+`InvalidArgumentError` before any request, and `NotFoundError` means nobody
+matched.
+
+### Unsubscribing
+
+`unsubscribe` is the update worth naming — it sets the type to
+`unsubscribed`:
+
+```ruby
+client.unsubscribe("reader@example.com")
+client.unsubscribe("reader@example.com", reason: "too many emails")
+```
+
+`reason:` is free text stored as `unsubscription_reason`. Calling it twice on
+an already-unsubscribed subscriber is harmless — it stays unsubscribed.
+
+Not every subscriber can be unsubscribed, though. One still in double opt-in
+raises `BadRequestError` with the code `subscriber_type_invalid`: Buttondown
+refuses to unsubscribe an `unactivated` record and directs you to delete it
+instead, which this gem deliberately cannot do. Check `unactivated?` first if
+that case is reachable in your flow.
+
+This is almost always what you want when someone asks to stop receiving
+email. The subscriber keeps their id, their history and their stats — opens,
+clicks, tags, the date and reason they left — and Buttondown remembers the
+opt-out:
+
+```ruby
+client.unsubscribe("reader@example.com")
+client.subscribe("reader@example.com", collision_behavior: "overwrite")
+# => raises Buttondown::SubscriberSuppressedError
+```
+
+Two sharp edges, both verified against the API:
+
+- The `subscribe` defaults — `type: "regular"` with `collision_behavior: "add"`
+  — **do** reactivate an unsubscribed subscriber, and `regular?` then reports
+  true because of it. Check `terminal?` first, or pass
+  `collision_behavior: "overwrite"` and rescue `SubscriberSuppressedError`.
+- `update_subscriber(type: "regular")` reactivates one too, and bypasses
+  suppression entirely — no error at all.
+
+Removing a subscriber outright isn't supported. Deleting takes the history and
+the stats with it, and Buttondown then has no record that the person opted
+out, so a later `subscribe` recreates them as `regular` with no error at all.
+
 ### The subscriber
 
 `subscribe` returns a `Buttondown::Subscriber`, a thin read-only view of the
@@ -115,6 +179,7 @@ enough to be safe. Rescue the specific classes where you want to act differently
 | `FeatureDisabledError` | 403 with the `feature_disabled` code | No |
 | `ForbiddenError` | Any other 403 | No |
 | `NotFoundError` | 404 | No |
+| `ConflictError` | 409. The request collided with concurrent work on the record | Yes |
 | `UnprocessableEntityError` | 422 | No |
 | `RateLimitError` | 429. Exposes `#retry_after` when the header is sent | Yes, after a wait |
 | `ServerError` | 5xx | Yes |
@@ -170,6 +235,9 @@ After checking out the repo, run `bin/setup` to install dependencies, then
 
 `bin/ci` runs everything CI runs — tests, RuboCop, undercover and
 bundler-audit. `bin/test` runs just the tests.
+
+`AGENTS.md` collects the API behavior that isn't in Buttondown's own docs, and
+points at the OpenAPI spec to check before adding an endpoint.
 
 ## Releasing a new version
 

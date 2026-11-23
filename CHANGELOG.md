@@ -6,6 +6,15 @@ hierarchy is listed.
 
 ## Unreleased
 
+- Added `Buttondown::Client#update_subscriber`, covering
+  `PATCH /v1/subscribers/{id_or_email}`. Takes a Buttondown id or an email
+  address and any attributes the API accepts, and returns the updated
+  `Buttondown::Subscriber`
+- Added `Buttondown::Client#unsubscribe`, which sets the type to
+  `"unsubscribed"` with an optional `reason:`
+- Added `Buttondown::ConflictError`, mapped from 409. The OpenAPI spec
+  documents 409 on every subscriber endpoint, so it also applies to the
+  existing calls, which previously surfaced it as a bare `APIError`
 - Added `Buttondown::Client#subscriber`, covering
   `GET /v1/subscribers/{id_or_email}`. Takes a Buttondown id or an email
   address, returns a `Buttondown::Subscriber`, and raises

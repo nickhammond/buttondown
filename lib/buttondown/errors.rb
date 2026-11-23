@@ -73,6 +73,11 @@ module Buttondown
 
   class NotFoundError < APIError; end
 
+  # Documented on every subscriber endpoint. It means the request collided
+  # with concurrent work on the same record, so unlike the other 4xx errors
+  # here the same call may succeed on a retry.
+  class ConflictError < APIError; end
+
   class UnprocessableEntityError < APIError; end
 
   class ServerError < APIError; end
@@ -101,6 +106,7 @@ module Buttondown
     401 => AuthenticationError,
     403 => ForbiddenError,
     404 => NotFoundError,
+    409 => ConflictError,
     422 => UnprocessableEntityError,
     429 => RateLimitError
   }.freeze

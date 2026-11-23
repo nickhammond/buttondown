@@ -23,6 +23,11 @@ class TestButtondownClient < Minitest::Test
         .to_return(status: status, body: body || subscriber_body, headers: headers)
     end
 
+    def stub_patch(segment, status: 200, body: nil)
+      stub_request(:patch, "#{CREATE_URL}/#{segment}")
+        .to_return(status: status, body: body || subscriber_body(type: "unsubscribed"))
+    end
+
     def stub_retrieve(segment, status: 200, body: nil)
       stub_request(:get, "#{CREATE_URL}/#{segment}")
         .to_return(status: status, body: body || subscriber_body)
@@ -314,6 +319,15 @@ class TestButtondownClient < Minitest::Test
         assert_includes error.message, "Bad Request"
       end
 
+      # The OpenAPI spec documents 409 on every subscriber endpoint.
+      it "maps 409 to ConflictError" do
+        stub_create(status: [409, "Conflict"], body: "")
+
+        error = assert_raises(Buttondown::ConflictError) { client.subscribe("nick@example.com") }
+
+        assert_equal 409, error.status
+      end
+
       it "maps 401 to AuthenticationError" do
         stub_create(status: [401, "Unauthorized"], body: "")
 
@@ -581,6 +595,122 @@ class TestButtondownClient < Minitest::Test
         end
 
         assert_not_requested :get, /api\.buttondown\.com/
+      end
+    end
+
+    describe "#update_subscriber" do
+      it "patches the attributes and returns the updated subscriber" do
+        stub = stub_request(:patch, "#{CREATE_URL}/sub_123")
+          .with(body: {notes: "a note"}.to_json)
+          .to_return(status: 200, body: subscriber_body)
+
+        result = client.update_subscriber("sub_123", notes: "a note")
+
+        assert_requested stub
+        assert_kind_of Buttondown::Subscriber, result
+        assert_equal "sub_123", result.id
+      end
+
+      it "sends several attributes at once" do
+        stub = stub_request(:patch, "#{CREATE_URL}/sub_123")
+          .with(body: {notes: "a note", metadata: {plan: "pro"}, commenting_disabled: true}.to_json)
+          .to_return(status: 200, body: subscriber_body)
+
+        client.update_subscriber("sub_123", notes: "a note", metadata: {plan: "pro"}, commenting_disabled: true)
+
+        assert_requested stub
+      end
+
+      # Attributes are not checked against the documented list: the API
+      # rejects an unknown one, so a new field needs no gem release.
+      it "passes an attribute the gem has never heard of straight through" do
+        stub = stub_request(:patch, "#{CREATE_URL}/sub_123")
+          .with(body: {some_future_field: "x"}.to_json)
+          .to_return(status: 200, body: subscriber_body)
+
+        client.update_subscriber("sub_123", some_future_field: "x")
+
+        assert_requested stub
+      end
+
+      it "works by email address" do
+        stub = stub_patch("nick%40example.com")
+
+        client.update_subscriber("nick@example.com", notes: "a note")
+
+        assert_requested stub
+      end
+
+      it "raises without a request when there is nothing to update" do
+        error = assert_raises(Buttondown::InvalidArgumentError) { client.update_subscriber("sub_123") }
+
+        assert_match "No attributes", error.message
+        assert_not_requested :patch, /api\.buttondown\.com/
+      end
+
+      it "raises without a request when the id is blank" do
+        ["", "   ", nil].each do |blank|
+          assert_raises(Buttondown::InvalidArgumentError) { client.update_subscriber(blank, notes: "x") }
+        end
+
+        assert_not_requested :patch, /api\.buttondown\.com/
+      end
+
+      it "raises NotFoundError when no subscriber matches" do
+        stub_patch("nobody%40example.com", status: 404,
+                                           body: {code: "not_found", detail: "Not found."}.to_json)
+
+        assert_raises(Buttondown::NotFoundError) { client.update_subscriber("nobody@example.com", notes: "x") }
+      end
+    end
+
+    describe "#unsubscribe" do
+      it "updates the type to unsubscribed" do
+        stub = stub_request(:patch, "#{CREATE_URL}/sub_123")
+          .with(body: {type: "unsubscribed"}.to_json)
+          .to_return(status: 200, body: subscriber_body(type: "unsubscribed"))
+
+        result = client.unsubscribe("sub_123")
+
+        assert_requested stub
+        assert_equal "unsubscribed", result.type
+        assert result.terminal?
+        refute result.regular?
+      end
+
+      it "sends a reason when given one" do
+        stub = stub_request(:patch, "#{CREATE_URL}/sub_123")
+          .with(body: {type: "unsubscribed", unsubscription_reason: "too many emails"}.to_json)
+          .to_return(status: 200, body: subscriber_body(type: "unsubscribed"))
+
+        client.unsubscribe("sub_123", reason: "too many emails")
+
+        assert_requested stub
+      end
+
+      it "omits the reason when none is given" do
+        stub = stub_request(:patch, "#{CREATE_URL}/sub_123")
+          .with { |request| !JSON.parse(request.body).key?("unsubscription_reason") }
+          .to_return(status: 200, body: subscriber_body(type: "unsubscribed"))
+
+        client.unsubscribe("sub_123")
+
+        assert_requested stub
+      end
+
+      it "works by email address" do
+        stub = stub_patch("nick%40example.com")
+
+        client.unsubscribe("nick@example.com")
+
+        assert_requested stub
+      end
+
+      it "raises NotFoundError when no subscriber matches" do
+        stub_patch("nobody%40example.com", status: 404,
+                                           body: {code: "not_found", detail: "Not found."}.to_json)
+
+        assert_raises(Buttondown::NotFoundError) { client.unsubscribe("nobody@example.com") }
       end
     end
   end
