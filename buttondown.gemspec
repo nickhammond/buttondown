@@ -27,7 +27,7 @@ Gem::Specification.new do |spec|
     `git ls-files -z`.split("\x0").reject do |f|
       (File.expand_path(f) == File.expand_path(__FILE__)) ||
         f.start_with?(*%w[bin/ test/ spec/ features/ .git]) ||
-        %w[.rubocop.yml .undercover Gemfile Guardfile Rakefile].include?(f)
+        %w[AGENTS.md .rubocop.yml .undercover Gemfile Guardfile Rakefile].include?(f)
     end
   end
 
