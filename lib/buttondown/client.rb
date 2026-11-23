@@ -30,12 +30,14 @@ module Buttondown
       Net::WriteTimeout
     ].freeze
 
-    # The two Net::HTTP transport failures that aren't IOErrors: a malformed
-    # status line, which is also what a keep-alive socket the server has since
-    # closed looks like, and a malformed header. Net::ProtocolError would cover
-    # both in one line, but its subtree includes HTTPClientException and
-    # HTTPFatalError -- HTTP status errors, which must not reach a caller
-    # disguised as a connection failure.
+    # Two Net::HTTP transport failures: a malformed status line, which is also
+    # what a keep-alive socket the server has since closed looks like, and a
+    # malformed header. Both descend straight from StandardError rather than
+    # from IOError or any shared Net:: class, so each has to be named here --
+    # no superclass rescue reaches them. Faraday's adapter lists them beside
+    # Net::ProtocolError, which is deliberately absent: it would catch neither
+    # of these, and its own subtree is HTTP status errors that must not reach a
+    # caller disguised as connection failures.
     CONNECTION_ERRORS = [
       SocketError,
       EOFError,
