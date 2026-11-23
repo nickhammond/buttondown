@@ -168,8 +168,10 @@ it anywhere but Buttondown).
   `Metrics/ClassLength` has been raised three times as endpoints were added; the
   next step is extracting the request layer into its own class, not a fourth
   bump.
-- Write the CHANGELOG entry before releasing. `bin/release <version>` runs
-  `bin/ci` then `gem bump --push --tag --release`.
+- Write the CHANGELOG entry before releasing, and give the section a version
+  heading rather than leaving it under Unreleased -- `bin/release` does not
+  check. `bin/release <version>` runs `bin/ci`, then
+  `gem bump --push --tag --release`, then `gh release create --generate-notes`.
 - The gemspec ships `lib/`, the README, LICENSE and CHANGELOG only. Add new
   dev-only files at the repo root to its reject list.
 

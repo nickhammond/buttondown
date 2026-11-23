@@ -5,3 +5,8 @@ VERSION=$1
 
 bin/ci
 gem bump --version $VERSION --push --tag --release
+
+# Same notes as the "generate notes" button: it calls the same endpoint.
+# Last, so a failure here leaves a published gem missing its release rather
+# than a release pointing at a version that never shipped.
+gh release create "v$VERSION" --generate-notes --verify-tag

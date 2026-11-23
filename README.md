@@ -247,8 +247,9 @@ Update `CHANGELOG.md`, then from a clean `main`:
 bin/release 0.1.1
 ```
 
-That runs `bin/ci`, bumps `lib/buttondown/version.rb`, tags, and pushes the
-gem. One-time setup: `gem signin`.
+That runs `bin/ci`, bumps `lib/buttondown/version.rb`, tags, pushes the gem,
+and creates the GitHub release with generated notes. One-time setup: `gem
+signin`, and `gh auth login` for the release step.
 
 ## Contributing
 
