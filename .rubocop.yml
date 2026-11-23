@@ -42,7 +42,10 @@ Metrics/BlockLength:
 Metrics/MethodLength:
   Max: 15
 
+# Each HTTP verb the client learns costs roughly eight lines of plumbing, so
+# this moves with the endpoint count rather than the design. Worth extracting
+# the request layer if it keeps climbing.
 Metrics/ClassLength:
-  Max: 150
+  Max: 175
   Exclude:
     - 'test/**/*'

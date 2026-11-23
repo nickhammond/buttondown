@@ -6,6 +6,11 @@ hierarchy is listed.
 
 ## Unreleased
 
+- Added `Buttondown::Client#delete_subscriber`, covering
+  `DELETE /v1/subscribers/{id_or_email}`. Takes a Buttondown id or an email
+  address and returns `nil`; raises `Buttondown::NotFoundError` when no
+  subscriber matches. Deletion is not unsubscribing and does not cancel a
+  backing Stripe subscription
 - Added `Buttondown::Client#subscriber`, covering
   `GET /v1/subscribers/{id_or_email}`. Takes a Buttondown id or an email
   address, returns a `Buttondown::Subscriber`, and raises
