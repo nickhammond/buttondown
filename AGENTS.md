@@ -196,6 +196,11 @@ it anywhere but Buttondown).
 
 - Work on a branch and open a PR; `main` is pushed to directly only for
   trivial fixes.
+- **Write PR bodies and commit messages for the next reader, not for yourself.**
+  No `claude.ai/code/session_...` links or other internal references: they 403
+  for everyone else, so they tell a reviewer nothing and just add noise to a
+  public repo. Put the reasoning in the message instead. This holds even when
+  tooling defaults ask for an attribution line.
 - **Never delete a PR's base branch while that PR is open.** It closes the PR,
   and GitHub won't let you reopen it once the base is gone — that cost a
   renumbered PR already. Retarget first.
