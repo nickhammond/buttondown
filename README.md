@@ -273,15 +273,29 @@ points at the OpenAPI spec to check before adding an endpoint.
 
 ## Releasing a new version
 
-Update `CHANGELOG.md`, then from a clean `main`:
+Give the CHANGELOG's `## Unreleased` section the version it's shipping as,
+with the date — `## 0.3.0 - 2026-11-23` — and **commit that first**. Then,
+from a clean `main`:
 
 ```
-bin/release 0.1.1
+git commit -am "Cut the 0.3.0 CHANGELOG section"
+bin/release 0.3.0
 ```
 
-That runs `bin/ci`, bumps `lib/buttondown/version.rb`, tags, pushes the gem,
-and creates the GitHub release with generated notes. One-time setup: `gem
-signin`, and `gh auth login` for the release step.
+That order isn't housekeeping. `gem bump` aborts on a dirty working tree, so
+an uncommitted CHANGELOG stops the release after `bin/ci` has already run.
+And the tag and the packaged `.gem` capture the CHANGELOG as it stands when
+the version is bumped, so committing it afterwards ships a release that files
+its own changes under "Unreleased" — which is how 0.2.1 went out.
+
+`bin/release` then runs `bin/ci`, bumps `lib/buttondown/version.rb`, tags,
+pushes the gem to RubyGems, and creates the GitHub release last, so a failure
+there leaves a published gem missing its release rather than a release
+pointing at a version that never shipped. Nothing in it looks at the
+CHANGELOG; the release notes are generated from the pull requests merged since
+the last tag.
+
+One-time setup: `gem signin`, and `gh auth login` for the release step.
 
 ## Contributing
 
