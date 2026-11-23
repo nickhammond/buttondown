@@ -111,9 +111,12 @@ module Buttondown
     # with a 422 and a new field needs no gem release.
     #
     # Only the attributes given are touched; the rest of the record is left
-    # alone. Note that this bypasses the suppression rules subscribe obeys:
-    # setting type back to "regular" reactivates an unsubscribed subscriber
-    # without the SubscriberSuppressedError a subscribe would raise.
+    # alone. Note that this bypasses the suppression rules: setting type back
+    # to "regular" reactivates an unsubscribed subscriber without the
+    # SubscriberSuppressedError that a subscribe with collision_behavior
+    # "overwrite" would raise. The subscribe defaults, "regular" plus "add",
+    # reactivate them without raising either -- no call here protects an
+    # existing opt-out on its own.
     def update_subscriber(id_or_email, **attributes)
       raise InvalidArgumentError, "No attributes to update" if attributes.empty?
 

@@ -53,6 +53,10 @@ Things verified against the live API, each of which cost a round trip:
   `X-Buttondown-Collision-Behavior` (on `/subscribers` and `/tags`) and
   `X-Buttondown-Bypass-Firewall`. Don't generalise `collision_behavior:` into a
   headers hash for a third header that doesn't exist.
+- **An `unactivated` subscriber cannot be unsubscribed.** `PATCH` with
+  `type: "unsubscribed"` returns 400 `subscriber_type_invalid` and directs you
+  to delete the record instead -- which this gem can't do. Unsubscribing an
+  already-unsubscribed subscriber, by contrast, is a harmless no-op.
 - **Rate limit is 100 creates/day**, growing with newsletter reputation. The
   loose local email check exists to keep junk from spending it.
 

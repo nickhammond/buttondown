@@ -99,8 +99,14 @@ client.unsubscribe("reader@example.com")
 client.unsubscribe("reader@example.com", reason: "too many emails")
 ```
 
-`reason:` is free text stored as `unsubscription_reason`. Calling it twice is
-harmless.
+`reason:` is free text stored as `unsubscription_reason`. Calling it twice on
+an already-unsubscribed subscriber is harmless — it stays unsubscribed.
+
+Not every subscriber can be unsubscribed, though. One still in double opt-in
+raises `BadRequestError` with the code `subscriber_type_invalid`: Buttondown
+refuses to unsubscribe an `unactivated` record and directs you to delete it
+instead, which this gem deliberately cannot do. Check `unactivated?` first if
+that case is reachable in your flow.
 
 This is almost always what you want when someone asks to stop receiving
 email. The subscriber keeps their id, their history and their stats — opens,
