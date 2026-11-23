@@ -6,7 +6,9 @@ hierarchy is listed.
 
 ## Unreleased
 
-Nothing yet.
+- Packaging: development files no longer ship in the gem. `.rubocop.yml`,
+  `.undercover`, `Gemfile`, `Guardfile`, `Rakefile` and the gemspec itself are
+  excluded, leaving `lib/`, `README.md`, `LICENSE.txt` and `CHANGELOG.md`.
 
 ## 0.1.1 - 2026-11-22
 

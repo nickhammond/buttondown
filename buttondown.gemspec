@@ -20,11 +20,14 @@ Gem::Specification.new do |spec|
   spec.metadata["bug_tracker_uri"] = "https://github.com/nickhammond/buttondown/issues"
   spec.metadata["rubygems_mfa_required"] = "true"
 
-  # Specify which files should be added to the gem when it is released.
-  # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
+  # Only lib/ and the docs a reader might want ship in the gem. Everything else
+  # tracked here is development tooling, which costs the installer bytes and
+  # tells them nothing. The `.git` prefix also covers `.gitignore`.
   spec.files = Dir.chdir(__dir__) do
     `git ls-files -z`.split("\x0").reject do |f|
-      (File.expand_path(f) == __FILE__) || f.start_with?(*%w[bin/ test/ spec/ features/ .git])
+      (File.expand_path(f) == File.expand_path(__FILE__)) ||
+        f.start_with?(*%w[bin/ test/ spec/ features/ .git]) ||
+        %w[.rubocop.yml .undercover Gemfile Guardfile Rakefile].include?(f)
     end
   end
 
