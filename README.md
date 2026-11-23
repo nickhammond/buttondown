@@ -288,12 +288,13 @@ And the tag and the packaged `.gem` capture the CHANGELOG as it stands when
 the version is bumped, so committing it afterwards ships a release that files
 its own changes under "Unreleased" — which is how 0.2.1 went out.
 
-`bin/release` then runs `bin/ci`, bumps `lib/buttondown/version.rb`, tags,
-pushes the gem to RubyGems, and creates the GitHub release last, so a failure
-there leaves a published gem missing its release rather than a release
-pointing at a version that never shipped. Nothing in it looks at the
-CHANGELOG; the release notes are generated from the pull requests merged since
-the last tag.
+`bin/release` refuses to start unless `CHANGELOG.md` already has a
+`## <version>` section, so forgetting costs a second instead of a release. It
+then runs `bin/ci`, bumps `lib/buttondown/version.rb`, tags, pushes the gem to
+RubyGems, and creates the GitHub release last, so a failure there leaves a
+published gem missing its release rather than a release pointing at a version
+that never shipped. The release notes themselves come from the pull requests
+merged since the last tag, not from the CHANGELOG.
 
 One-time setup: `gem signin`, and `gh auth login` for the release step.
 

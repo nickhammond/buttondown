@@ -188,11 +188,12 @@ it anywhere but Buttondown).
   `Metrics/ClassLength` has been raised three times as endpoints were added; the
   next step is extracting the request layer into its own class, not a fourth
   bump.
-- Releasing is documented in the README under "Releasing a new version", and
-  the CHANGELOG heading is the step to get wrong: `bin/release` never looks at
-  the file, and `gem bump` aborts on a dirty tree, so the version heading has
-  to be committed before the release runs. 0.2.1 shipped filed under
-  "Unreleased" for exactly that reason.
+- Releasing is documented in the README under "Releasing a new version". The
+  CHANGELOG heading was the step to get wrong -- 0.2.1 shipped filed under
+  "Unreleased" -- so `bin/release` now aborts unless the version has a
+  `## <version>` section. That guard reads the worktree, so a heading written
+  but not committed clears it and then trips `gem bump`'s dirty-tree check
+  after `bin/ci` has run: commit it first.
 - The gemspec ships `lib/`, the README, LICENSE and CHANGELOG only. Add new
   dev-only files at the repo root to its reject list.
 

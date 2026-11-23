@@ -3,6 +3,14 @@
 
 VERSION=$1
 
+# First, and before bin/ci, because the tag and the packaged gem capture the
+# CHANGELOG as it stands at bump time: 0.2.1 shipped filed under "Unreleased".
+if ! grep -q "^## ${VERSION//./\\.}" CHANGELOG.md; then
+  echo "bin/release: CHANGELOG.md has no '## $VERSION' section." >&2
+  echo "Give the Unreleased section its version heading and commit it first." >&2
+  exit 1
+fi
+
 bin/ci
 gem bump --version $VERSION --push --tag --release
 
