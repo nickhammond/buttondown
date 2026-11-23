@@ -4,7 +4,7 @@ All notable changes to this gem are documented here. The error classes are part
 of the public API -- callers rescue them by name -- so every change to the error
 hierarchy is listed.
 
-## Unreleased
+## 0.3.0 - 2026-11-23
 
 - **Breaking:** `#subscribe` no longer sends a collision behavior of its own,
   so Buttondown's documented default applies: a repeat address raises
